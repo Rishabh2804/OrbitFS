@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="org.orbitfs.common.protocol.RpcDtoTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-08-29T16:49:56.713Z" hostname="Rishabhs-MacBook-Air.local" time="0.09">
+<testsuite name="org.orbitfs.common.protocol.RpcDtoTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-08-29T17:56:32.392Z" hostname="Rishabhs-MacBook-Air.local" time="0.013">
   <properties/>
-  <testcase name="requestRoundTripsLosslessly()" classname="org.orbitfs.common.protocol.RpcDtoTest" time="0.034"/>
-  <testcase name="nullablesSurviveRoundTrip()" classname="org.orbitfs.common.protocol.RpcDtoTest" time="0.006"/>
-  <testcase name="responseWithStatRoundTripsLosslessly()" classname="org.orbitfs.common.protocol.RpcDtoTest" time="0.005"/>
+  <testcase name="requestRoundTripsLosslessly()" classname="org.orbitfs.common.protocol.RpcDtoTest" time="0.004"/>
+  <testcase name="nullablesSurviveRoundTrip()" classname="org.orbitfs.common.protocol.RpcDtoTest" time="0.004"/>
+  <testcase name="responseWithStatRoundTripsLosslessly()" classname="org.orbitfs.common.protocol.RpcDtoTest" time="0.003"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
