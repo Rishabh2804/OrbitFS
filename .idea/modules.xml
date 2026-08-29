@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/OrbitFS.iml" filepath="$PROJECT_DIR$/OrbitFS.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/orbitfs-core.iml" filepath="$PROJECT_DIR$/.idea/modules/orbitfs-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/orbitfs-core.main.iml" filepath="$PROJECT_DIR$/.idea/modules/orbitfs-core.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/orbitfs-core.test.iml" filepath="$PROJECT_DIR$/.idea/modules/orbitfs-core.test.iml" />
     </modules>
   </component>
 </project>
