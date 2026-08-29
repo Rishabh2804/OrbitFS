@@ -2,11 +2,13 @@ package org.orbitfs.common.protocol;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.orbitfs.common.OrbitSerializer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class RpcDtoTest {
+
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -21,8 +23,8 @@ class RpcDtoTest {
                 512,
                 "SGVsbG8gV29ybGQgRGlzdHJpYnV0ZWQgRmlsZSBTeXN0ZW0=");
 
-        String json = mapper.writeValueAsString(in);
-        RPCRequest out = mapper.readValue(json, RPCRequest.class);
+        String json = OrbitSerializer.toJson(in);
+        RPCRequest out = OrbitSerializer.fromJson(json, RPCRequest.class);
 
         assertEquals(in, out);
     }
@@ -38,8 +40,8 @@ class RpcDtoTest {
                 null,
                 new RPCResponse.RPCStat(4096, false, 1772323200000L));
 
-        String json = mapper.writeValueAsString(in);
-        RPCResponse out = mapper.readValue(json, RPCResponse.class);
+        String json = OrbitSerializer.toJson(in);
+        RPCResponse out = OrbitSerializer.fromJson(json, RPCResponse.class);
 
         assertEquals(in, out);
     }
