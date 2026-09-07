@@ -3,6 +3,7 @@ package org.orbitfs.common.model;
 import org.orbitfs.server.StorageIOException;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.UUID;
@@ -74,5 +75,54 @@ public class FileChannelHandle {
             }
         }
         return channel;
+    }
+
+    // --- I/O owned by handle — StorageEngine just delegates ---
+    public byte[] read(long offset, int count) {
+        try {
+            ByteBuffer buf = ByteBuffer.allocate(count);
+            int n = getChannel().read(buf, offset);
+            if (n == -1) return new byte[0];
+            buf.flip();
+            byte[] out = new byte[n];
+            buf.get(out);
+            recordRead(n);
+            touch();
+            return out;
+        } catch (IOException e) {
+            throw new StorageIOException("read", handleId, e);
+        }
+    }
+
+    public int write(long offset, byte[] data) {
+        try {
+            int n = getChannel().write(ByteBuffer.wrap(data), offset);
+            recordWrite(n);
+            touch();
+            return n;
+        } catch (IOException e) {
+            throw new StorageIOException("write", handleId, e);
+        }
+    }
+
+    public long seek(long offset) {
+        try {
+            FileChannel ch = getChannel();
+            long newPos = ch.position() + offset;
+            ch.position(newPos);
+            touch();
+            return ch.position();
+        } catch (IOException e) {
+            throw new StorageIOException("seek", handleId, e);
+        }
+    }
+
+    public void closeChannel() {
+        try {
+            FileChannel ch = this.fileChannel;
+            if (ch != null) ch.close();
+        } catch (IOException e) {
+            throw new StorageIOException("close", handleId, e);
+        }
     }
 }

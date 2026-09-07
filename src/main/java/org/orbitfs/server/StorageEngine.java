@@ -3,10 +3,6 @@ package org.orbitfs.server;
 import org.orbitfs.common.model.FileChannelHandle;
 import org.orbitfs.common.model.FileStat;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-
 /**
  * OFS-106 — Machine Coding Skeleton
  * <p>
@@ -51,54 +47,26 @@ public class StorageEngine {
     /**
      * Reads up to {@code count} bytes at absolute {@code offset}.
      * Returns exact payload (fewer bytes at EOF). Empty array if offset >= size.
+     * Delegates to handle — I/O owned by FileChannelHandle.
      */
     public byte[] read(String handleId, long offset, int count) {
-        FileChannelHandle handle = table.getHandle(handleId);
-        try {
-            FileChannel fileChannel = handle.getChannel();
-            ByteBuffer buffer = ByteBuffer.allocate(count);
-            int bytesRead = fileChannel.read(buffer, offset);
-            if (bytesRead == -1) {
-                return new byte[0];
-            }
-            buffer.flip();
-            byte[] result = new byte[bytesRead];
-            buffer.get(result);
-            return result;
-        } catch (IOException e) {
-            throw new StorageException("Read failed: " + handleId, e);
-        }
+        return table.getHandle(handleId).read(offset, count);
     }
 
     /**
      * Writes {@code data} at absolute {@code offset}. Returns bytes written.
+     * Delegates to handle.
      */
     public int write(String handleId, long offset, byte[] data) {
-        FileChannelHandle handle = table.getHandle(handleId);
-        try {
-            FileChannel fileChannel = handle.getChannel();
-            ByteBuffer buffer = ByteBuffer.wrap(data);
-            return fileChannel.write(buffer, offset);
-        } catch (IOException e) {
-            throw new StorageException("Write failed: " + handleId, e);
-        }
+        return table.getHandle(handleId).write(offset, data);
     }
 
     /**
      * Sets position cursor (for future relative ops). Returns new position.
-     * Note: read/write above use absolute offsets — this is for seek semantics.
+     * Delegates to handle.
      */
     public long seek(String handleId, long offset) {
-        FileChannelHandle handle = table.getHandle(handleId);
-        try {
-            FileChannel fileChannel = handle.getChannel();
-            long currPosition = fileChannel.position();
-            long newPosition = currPosition + offset;
-            fileChannel.position(newPosition);
-            return fileChannel.position();
-        } catch (IOException e) {
-            throw new StorageException("Seek failed: " + handleId, e);
-        }
+        return table.getHandle(handleId).seek(offset);
     }
 
     /**
@@ -121,11 +89,7 @@ public class StorageEngine {
      */
     public void close(String handleId) {
         FileChannelHandle handle = table.getHandle(handleId);
-        try {
-            handle.getChannel().close();
-        } catch (IOException e) {
-            throw new StorageException("Close failed: " + handleId, e);
-        }
+        handle.closeChannel();
         table.close(handleId);
     }
 }
