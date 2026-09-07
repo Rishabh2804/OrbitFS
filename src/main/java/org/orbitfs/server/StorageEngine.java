@@ -71,10 +71,18 @@ public class StorageEngine {
 
     /**
      * Returns metadata for the open handle's underlying file.
+     * Uses channel.size() for accurate open-file size, not stale Files.size.
      */
     public FileStat stat(String handleId) {
         FileChannelHandle handle = table.getHandle(handleId);
-        return FileStat.getFileStat(handle.getPath());
+        try {
+            long size = handle.getChannel().size();
+            boolean isDir = java.nio.file.Files.isDirectory(java.nio.file.Path.of(handle.getPath()));
+            long lastMod = java.nio.file.Files.getLastModifiedTime(java.nio.file.Path.of(handle.getPath())).toMillis();
+            return new FileStat(size, isDir, lastMod);
+        } catch (java.io.IOException e) {
+            throw new StorageIOException("stat", handleId, e);
+        }
     }
 
     /**
@@ -89,7 +97,10 @@ public class StorageEngine {
      */
     public void close(String handleId) {
         FileChannelHandle handle = table.getHandle(handleId);
-        handle.closeChannel();
-        table.close(handleId);
+        try {
+            handle.closeChannel();
+        } finally {
+            table.close(handleId);
+        }
     }
 }

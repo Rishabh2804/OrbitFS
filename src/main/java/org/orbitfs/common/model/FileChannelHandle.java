@@ -12,8 +12,6 @@ import static java.nio.file.StandardOpenOption.*;
 
 public class FileChannelHandle {
 
-    private static final long DEFAULT_TTL = 60; // 60 seconds
-
     private final String path;
     private final String handleId;
 
@@ -23,8 +21,12 @@ public class FileChannelHandle {
     public FileChannelHandle(String path) {
         this.path = path;
         this.handleId = generateHandleId(path);
-
-        this.fileChannel = getChannel();
+        // ponytail: hardcoded CREATE,READ,WRITE — parameterize OpenOption... if read-only needed
+        try {
+            this.fileChannel = FileChannel.open(Path.of(path), CREATE, READ, WRITE);
+        } catch (IOException e) {
+            throw new StorageIOException(path, e);
+        }
     }
 
     private String generateHandleId(String path) {
@@ -108,8 +110,7 @@ public class FileChannelHandle {
     public long seek(long offset) {
         try {
             FileChannel ch = getChannel();
-            long newPos = ch.position() + offset;
-            ch.position(newPos);
+            ch.position(offset);
             touch();
             return ch.position();
         } catch (IOException e) {
@@ -118,11 +119,18 @@ public class FileChannelHandle {
     }
 
     public void closeChannel() {
-        try {
-            FileChannel ch = this.fileChannel;
-            if (ch != null) ch.close();
-        } catch (IOException e) {
-            throw new StorageIOException("close", handleId, e);
+        FileChannel ch = this.fileChannel;
+        if (ch == null) return;
+        synchronized (this) {
+            ch = this.fileChannel;
+            if (ch == null) return;
+            try {
+                ch.close();
+            } catch (IOException e) {
+                throw new StorageIOException("close", handleId, e);
+            } finally {
+                this.fileChannel = null;
+            }
         }
     }
 }
