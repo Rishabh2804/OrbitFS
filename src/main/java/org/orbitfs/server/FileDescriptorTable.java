@@ -43,10 +43,9 @@ public class FileDescriptorTable {
      * @throws FileChannelNotFoundException if the handle does not exist
      */
     public FileChannelHandle getHandle(String handleId) {
-        if (!handles.containsKey(handleId)) {
-            throw new FileChannelNotFoundException(handleId);
-        }
-        return handles.get(handleId);
+        FileChannelHandle h = handles.get(handleId);
+        if (h == null) throw new FileChannelNotFoundException(handleId);
+        return h;
     }
 
     /**
