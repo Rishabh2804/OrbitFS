@@ -38,7 +38,8 @@ class RpcDtoTest {
                 512,
                 "fd-99812-uuid",
                 null,
-                new RPCResponse.RPCStat(4096, false, 1772323200000L));
+                new RPCResponse.RPCStat(4096, false, 1772323200000L),
+                null);
 
         String json = OrbitSerializer.toJson(in);
         RPCResponse out = OrbitSerializer.fromJson(json, RPCResponse.class);
@@ -48,7 +49,7 @@ class RpcDtoTest {
 
     @Test
     void nullablesSurviveRoundTrip() throws Exception {
-        RPCResponse in = new RPCResponse(null, RPCStatus.ERROR, 1, 0, null, null, null);
+        RPCResponse in = new RPCResponse(null, RPCStatus.ERROR, 1, 0, null, null, null, null);
 
         RPCResponse out = mapper.readValue(mapper.writeValueAsString(in), RPCResponse.class);
 

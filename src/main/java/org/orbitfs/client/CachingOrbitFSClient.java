@@ -88,6 +88,11 @@ public final class CachingOrbitFSClient implements OrbitFSClient {
     }
 
     @Override
+    public java.util.List<String> list(String handleId) throws IOException {
+        return delegate.list(handleId);
+    }
+
+    @Override
     public void close() throws IOException {
         cache.close();
         delegate.close();

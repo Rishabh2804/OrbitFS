@@ -11,5 +11,6 @@ public enum RpcMethod {
     WRITE,
     CLOSE,
     STAT,
+    LIST,
     FILE_WRITE
 }

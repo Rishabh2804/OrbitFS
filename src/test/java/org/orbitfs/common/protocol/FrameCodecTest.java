@@ -27,7 +27,8 @@ class FrameCodecTest {
             512,
             "fd-99812-uuid",
             null,
-            new RPCResponse.RPCStat(4096, false, 1772323200000L)
+            new RPCResponse.RPCStat(4096, false, 1772323200000L),
+            null
     );
 
     @Test

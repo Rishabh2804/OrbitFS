@@ -87,22 +87,22 @@ class ClientTest {
     private static void handleRequest(RPCRequest req, DataOutputStream out) throws IOException {
         RPCResponse resp = switch (req.method()) {
             case PING -> new RPCResponse(req.requestId(), RPCStatus.PONG, 0, 0,
-                    null, null, null);
+                    null, null, null, null);
             case OPEN -> new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0,
-                    "mock-fd-" + System.nanoTime(), null, null);
+                    "mock-fd-" + System.nanoTime(), null, null, null);
             case READ -> new RPCResponse(req.requestId(), RPCStatus.OK, 0, req.count(),
-                    null, Base64.getEncoder().encodeToString(new byte[req.count()]), null);
+                    null, Base64.getEncoder().encodeToString(new byte[req.count()]), null, null);
             case WRITE -> {
                 int written = req.dataBase64() != null
                         ? Base64.getDecoder().decode(req.dataBase64()).length
                         : 0;
                 yield new RPCResponse(req.requestId(), RPCStatus.OK, 0, written,
-                        null, null, null);
+                        null, null, null, null);
             }
             case CLOSE -> new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0,
-                    null, null, null);
+                    null, null, null, null);
             case STAT -> new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0,
-                    null, null, new RPCResponse.RPCStat(4096, false, System.currentTimeMillis()));
+                    null, null, new RPCResponse.RPCStat(4096, false, System.currentTimeMillis()), null);
             default -> RPCResponse.error(req.requestId(), 1);
         };
         out.write(FrameCodec.encodeResponse(resp));
