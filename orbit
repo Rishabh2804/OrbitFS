@@ -1,0 +1,6 @@
+#!/bin/zsh
+# orbit — OrbitFS CLI wrapper
+# Install: cp orbit /usr/local/bin/orbit
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec java -jar "${SCRIPT_DIR}/build/libs/orbitfs-core-0.1.0.jar" "$@"
