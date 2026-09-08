@@ -13,13 +13,15 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.Base64;
 import java.util.UUID;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
- * Persistent TCP client that multiplexes RPCs over a single socket.
- * <p>
- * Uses {@link FrameCodec} for length-prefixed framing and correlates
- * requestId → CompletableFuture so multiple threads can share one connection.
+ * Persistent TCP client: multiplexes RPCs over one socket via FrameCodec.
+ * Correlates requestId → CompletableFuture for concurrent request/response.
  */
 public final class NetworkTransportClient implements OrbitFSClient {
 
@@ -33,7 +35,6 @@ public final class NetworkTransportClient implements OrbitFSClient {
     private final ConcurrentHashMap<String, CompletableFuture<RPCResponse>> pending = new ConcurrentHashMap<>();
     private Thread readerThread;
     private volatile boolean closed = false;
-
     private final long timeout;
 
     public NetworkTransportClient(String host, int port) {
@@ -48,27 +49,16 @@ public final class NetworkTransportClient implements OrbitFSClient {
 
     /**
      * Opens socket, wraps streams, and starts a virtual-thread reader that
-     * decodes {@link RPCResponse} frames and completes the matching pending future.
-     *
-     * @throws IOException if the socket cannot be opened
+     * decodes RPCResponse frames and completes the matching pending future.
      */
     public void connect() throws IOException {
         socket = new Socket(host, port);
         socket.setTcpNoDelay(true);
-
         in = new DataInputStream(socket.getInputStream());
         out = new DataOutputStream(socket.getOutputStream());
-
         readerThread = Thread.ofVirtual().start(this::readLoop);
     }
 
-    /**
-     * Background reader loop. Decodes one {@link RPCResponse} frame at a time
-     * and completes the matching future in {@link #pending}, keyed by requestId.
-     * When the stream dies, fails all outstanding futures.
-     *
-     * <p>This is called from the virtual-thread reader started in {@link #connect()}.
-     */
     private void readLoop() {
         try {
             while (!socket.isClosed()) {
@@ -83,12 +73,6 @@ public final class NetworkTransportClient implements OrbitFSClient {
         }
     }
 
-    /**
-     * Core send-and-await helper. Sends an RPC request and waits for the response,
-     * keyed by a fresh {@code requestId}.
-     *
-     * @throws IOException if the request cannot be sent
-     */
     private RPCResponse send(RpcMethod method, String path, String fd,
                              long offset, int count, byte[] data) throws IOException {
         ensureConnected();
@@ -118,7 +102,6 @@ public final class NetworkTransportClient implements OrbitFSClient {
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             pending.remove(requestId);
-
             throw new RuntimeException("Interrupted while waiting for response", ie);
         } catch (TimeoutException toe) {
             pending.remove(requestId);
@@ -150,9 +133,7 @@ public final class NetworkTransportClient implements OrbitFSClient {
     @Override
     public byte[] read(String handleId, long offset, int count) throws IOException {
         RPCResponse response = send(RpcMethod.READ, null, handleId, offset, count, null);
-        if (response.dataBase64() == null) {
-            return new byte[0];  // empty buffer = no data
-        }
+        if (response.dataBase64() == null) return new byte[0];
         return Base64.getDecoder().decode(response.dataBase64());
     }
 
@@ -176,20 +157,13 @@ public final class NetworkTransportClient implements OrbitFSClient {
 
     @Override
     public void close() throws IOException {
-        if (closed) {
-            return;
-        }
+        if (closed) return;
         closed = true;
         failPending(new IOException("client closed"));
         if (socket != null && !socket.isClosed()) {
-            try {
-                socket.close();
-            } catch (IOException ignored) {
-            }
+            try { socket.close(); } catch (IOException ignored) {}
         }
-        if (readerThread != null) {
-            readerThread.interrupt();
-        }
+        if (readerThread != null) readerThread.interrupt();
     }
 
     private String nextId() {

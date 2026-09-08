@@ -24,9 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * OFS-107 Judge — tests NetworkTransportClient against an in-process
- * frame-codec mock server (no real OrbitServerImpl needed).
- * <p>
+ * Integration tests for NetworkTransportClient against an in-process FrameCodec mock server.
  * Run: ./gradlew test --tests "org.orbitfs.client.ClientTest"
  */
 class ClientTest {
@@ -83,10 +81,9 @@ class ClientTest {
         }
     }
 
-    /**
-     * Echoes each RPCRequest back as an RPCResponse, with
-     * method-specific logic for OPEN/READ/WRITE/STAT/CLOSE.
-     */
+/**
+ * Handles RPCRequest and sends back RPCResponse with method-specific logic.
+ */
     private static void handleRequest(RPCRequest req, DataOutputStream out) throws IOException {
         RPCResponse resp = switch (req.method()) {
             case PING -> new RPCResponse(req.requestId(), RPCStatus.PONG, 0, 0,
@@ -106,7 +103,7 @@ class ClientTest {
                     null, null, null);
             case STAT -> new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0,
                     null, null, new RPCResponse.RPCStat(4096, false, System.currentTimeMillis()));
-            default -> RPCResponse.error(req.requestId(), 1, "unknown method");
+            default -> RPCResponse.error(req.requestId(), 1);
         };
         out.write(FrameCodec.encodeResponse(resp));
         out.flush();

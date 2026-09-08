@@ -1,8 +1,7 @@
 package org.orbitfs.common.protocol;
 
 /**
- * Wire status for {@link RPCResponse}.
- * Jackson serializes enums as their name() by default, so wire values stay "OK"/"ERROR"/"PONG".
+ * Wire status for RPCResponse.
  */
 public enum RPCStatus {
     OK(1),
