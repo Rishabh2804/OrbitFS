@@ -16,7 +16,7 @@ class RpcDtoTest {
     void requestRoundTripsLosslessly() throws Exception {
         RPCRequest in = new RPCRequest(
                 "a1b2c3d4-e5f6-7890-1234-56789abcdef0",
-                "FILE_WRITE",
+                RpcMethod.FILE_WRITE,
                 "/data/logs/app.log",
                 "fd-99812-uuid",
                 1024,

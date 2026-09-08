@@ -1,11 +1,16 @@
 package org.orbitfs.common.protocol;
 
 /**
- * Fixed set of RPC methods — replaces Stringly-typed "OPEN"/"PING".
- * Jackson serializes enum as name() string, so wire stays "PING".
+ * Fixed set of RPC methods understood by the server.
+ * Jackson serializes enums as their {@code name()} string, so wire values stay "OPEN", "READ", etc.
  */
 public enum RpcMethod {
-    PING, PONG,
-    OPEN, READ, WRITE, CLOSE, STAT,
-    FILE_WRITE // legacy from RpcDtoTest
+    PING,
+    PONG,
+    OPEN,
+    READ,
+    WRITE,
+    CLOSE,
+    STAT,
+    FILE_WRITE
 }

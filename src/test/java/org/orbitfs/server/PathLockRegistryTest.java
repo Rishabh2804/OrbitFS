@@ -36,8 +36,8 @@ class PathLockRegistryTest {
         assertEquals(LockResult.LockStatus.GRANTED, r2.status(),
             "/a/b tryReadLock should also succeed (same canonical path)");
 
-        registry.unlockRead(p1);
-        registry.unlockRead(p2);
+        r1.lock().unlock();
+        r2.lock().unlock();
     }
 
     // --- 10 concurrent readers ---
@@ -70,7 +70,7 @@ class PathLockRegistryTest {
                         allAcquired.countDown();
                         // hold briefly
                         Thread.sleep(500);
-                        registry.unlockRead(path);
+                        lr.lock().unlock();
                     } catch (Exception e) {
                         failures.incrementAndGet();
                     }
@@ -111,12 +111,12 @@ class PathLockRegistryTest {
         assertEquals(LockResult.LockStatus.BUSY, writerResult.get().status(),
             "Writer should be BUSY while a reader holds the lock");
 
-        registry.unlockRead(path);
+        reader.lock().unlock();
         // now writer should succeed after reader released
         LockResult w2 = registry.tryWriteLock(path, 5, TimeUnit.SECONDS);
         assertEquals(LockResult.LockStatus.GRANTED, w2.status(),
             "Writer should acquire after reader releases");
-        registry.unlockWrite(path);
+        w2.lock().unlock();
     }
 
     // --- tryReadLock returns BUSY when writeLock held (cross-thread) ---
@@ -133,7 +133,7 @@ class PathLockRegistryTest {
         assertEquals(LockResult.LockStatus.BUSY, readerAttempt.get(2, TimeUnit.SECONDS).status(),
             "tryReadLock should return BUSY when another thread holds writeLock");
 
-        registry.unlockWrite(path);
+        writer.lock().unlock();
     }
 
     // --- Cleanup after last unlock ---
@@ -148,7 +148,7 @@ class PathLockRegistryTest {
         assertTrue(registry.containsLock(path),
             "Lock should exist immediately after acquiring");
 
-        registry.unlockRead(path);
+        r.lock().unlock();
 
         // Allow cleanup thread to run (it's synchronous on unlock in this impl)
         assertFalse(registry.containsLock(path),
@@ -176,12 +176,12 @@ class PathLockRegistryTest {
                             if (isWriter) {
                                 LockResult lr = registry.writeLock(path);
                                 if (lr.isGranted()) {
-                                    registry.unlockWrite(path);
+                                    lr.lock().unlock();
                                 }
                             } else {
                                 LockResult lr = registry.readLock(path);
                                 if (lr.isGranted()) {
-                                    registry.unlockRead(path);
+                                    lr.lock().unlock();
                                 }
                             }
                         }
