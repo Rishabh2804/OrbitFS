@@ -25,6 +25,12 @@ public final class FrameCodec {
         return baos.toByteArray();
     }
 
+    // --- typed helpers — cleaner call sites, still delegate to generic ---
+    public static byte[] encodeRequest(RPCRequest req) throws IOException { return encode(req); }
+    public static byte[] encodeResponse(RPCResponse resp) throws IOException { return encode(resp); }
+    public static RPCRequest decodeRequest(DataInputStream in) throws IOException { return decode(in, RPCRequest.class); }
+    public static RPCResponse decodeResponse(DataInputStream in) throws IOException { return decode(in, RPCResponse.class); }
+
     public static <T> T decode(DataInputStream dis, Class<T> type) throws IOException {
         byte[] magic = new byte[4];
         dis.readFully(magic);
