@@ -19,6 +19,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 
 import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
@@ -39,6 +40,7 @@ public class OrbitServerImpl implements OrbitServer {
     private final Map<RpcMethod, BiFunction<RPCRequest, StorageEngine, RPCResponse>> handlers;
 
     private volatile ServerSocket serverSocket;
+    private final AtomicLong requestCount = new AtomicLong();
 
     public OrbitServerImpl(int port) {
         this(port, new StorageEngine(), new PathLockRegistry());
@@ -170,6 +172,7 @@ public class OrbitServerImpl implements OrbitServer {
     }
 
     private RPCResponse dispatch(RPCRequest request) {
+        requestCount.incrementAndGet();
         try {
             BiFunction<RPCRequest, StorageEngine, RPCResponse> handler = handlers.get(request.method());
             if (handler == null) {
@@ -203,5 +206,9 @@ public class OrbitServerImpl implements OrbitServer {
     private boolean isShuttingDown() {
         ServerSocket current = serverSocket;
         return current == null || current.isClosed();
+    }
+
+    public long getRequestCount() {
+        return requestCount.get();
     }
 }
