@@ -13,109 +13,38 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Thread-safe registry mapping canonical paths to {@link ReentrantReadWriteLock} instances.
- * Allows multiple concurrent readers, exclusive writers.
- * Auto-cleans lock entries when no holders or waiters remain.
+ * Thread-safe registry: canonical paths → ReentrantReadWriteLock instances.
+ * Allows concurrent readers, exclusive writers. Auto-cleans on last unlock.
  */
 public final class PathLockRegistry {
 
     private final Map<Path, ReadWriteLock> locks = new ConcurrentHashMap<>();
 
-    private enum LockMode {
-        READ,
-        WRITE
-    }
+    private enum LockMode { READ, WRITE }
 
-    /**
-     * Returns the shared (read) lock for the given path.
-     * Multiple readers can hold this lock concurrently.
-     */
-    public LockResult readLock(Path path) {
-        return lock(path, LockMode.READ);
-    }
+    public LockResult readLock(Path path) { return lock(path, LockMode.READ); }
+    public LockResult writeLock(Path path) { return lock(path, LockMode.WRITE); }
+    public LockResult tryReadLock(Path path) { return tryLock(path, LockMode.READ); }
+    public LockResult tryWriteLock(Path path) { return tryLock(path, LockMode.WRITE); }
 
-    /**
-     * Returns the exclusive (write) lock for the given path.
-     * Only one writer can hold this lock, excluding all readers.
-     */
-    public LockResult writeLock(Path path) {
-        return lock(path, LockMode.WRITE);
-    }
-
-    /**
-     * Attempts to acquire the read lock non-blocking.
-     * Returns GRANTED if acquired, BUSY otherwise.
-     */
-    public LockResult tryReadLock(Path path) {
-        return tryLock(path, LockMode.READ);
-    }
-
-    /**
-     * Attempts to acquire the write lock non-blocking.
-     * Returns GRANTED if acquired, BUSY otherwise.
-     */
-    public LockResult tryWriteLock(Path path) {
-        return tryLock(path, LockMode.WRITE);
-    }
-
-    /**
-     * Attempts to acquire the read lock with timeout.
-     * Returns GRANTED if acquired within timeout, BUSY otherwise.
-     */
-    public LockResult tryReadLock(Path path, long timeout, TimeUnit unit)
-            throws InterruptedException {
+    public LockResult tryReadLock(Path path, long timeout, TimeUnit unit) throws InterruptedException {
         return tryLock(path, LockMode.READ, timeout, unit);
     }
 
-    /**
-     * Attempts to acquire the write lock with timeout.
-     * Returns GRANTED if acquired within timeout, BUSY otherwise.
-     */
-    public LockResult tryWriteLock(Path path, long timeout, TimeUnit unit)
-            throws InterruptedException {
+    public LockResult tryWriteLock(Path path, long timeout, TimeUnit unit) throws InterruptedException {
         return tryLock(path, LockMode.WRITE, timeout, unit);
     }
 
-    /**
-     * Releases the read lock for the given path.
-     * Auto-cleans the lock entry if no holders or waiters remain.
-     */
-    public void unlockRead(Path path) {
-        unlock(path, LockMode.READ);
-    }
+    public void unlockRead(Path path) { unlock(path, LockMode.READ); }
+    public void unlockWrite(Path path) { unlock(path, LockMode.WRITE); }
 
-    /**
-     * Releases the write lock for the given path.
-     * Auto-cleans the lock entry if no holders or waiters remain.
-     */
-    public void unlockWrite(Path path) {
-        unlock(path, LockMode.WRITE);
-    }
+    public int size() { return locks.size(); }
+    public boolean containsLock(Path path) { return locks.containsKey(canonical(path)); }
 
-    /**
-     * Returns the number of active lock entries.
-     */
-    public int size() {
-        return locks.size();
-    }
-
-    /**
-     * Checks if a lock entry exists for the given path.
-     */
-    public boolean containsLock(Path path) {
-        return locks.containsKey(canonical(path));
-    }
-
-    /**
-     * Normalizes a path to its canonical form for consistent keying.
-     */
-    private Path canonical(Path path) {
-        return path.toAbsolutePath().normalize();
-    }
+    private Path canonical(Path path) { return path.toAbsolutePath().normalize(); }
 
     private ReadWriteLock getOrCreate(Path path) {
-        Path key = canonical(path);
-        return locks.computeIfAbsent(key, k -> new ReentrantReadWriteLock());
+        return locks.computeIfAbsent(canonical(path), k -> new ReentrantReadWriteLock());
     }
 
     private LockResult lock(Path path, LockMode mode) {
@@ -129,8 +58,8 @@ public final class PathLockRegistry {
         ReadWriteLock rwLock = getOrCreate(path);
         Lock selected = modeLock(rwLock, mode);
         boolean acquired = selected.tryLock();
-        LockStatus status = acquired ? LockStatus.GRANTED : LockStatus.BUSY;
-        return new LockResult(status, acquired ? wrap(selected, path, mode) : selected);
+        return new LockResult(acquired ? LockStatus.GRANTED : LockStatus.BUSY,
+                acquired ? wrap(selected, path, mode) : selected);
     }
 
     private LockResult tryLock(Path path, LockMode mode, long timeout, TimeUnit unit)
@@ -138,28 +67,21 @@ public final class PathLockRegistry {
         ReadWriteLock rwLock = getOrCreate(path);
         Lock selected = modeLock(rwLock, mode);
         boolean acquired = selected.tryLock(timeout, unit);
-        LockStatus status = acquired ? LockStatus.GRANTED : LockStatus.BUSY;
-        return new LockResult(status, acquired ? wrap(selected, path, mode) : selected);
+        return new LockResult(acquired ? LockStatus.GRANTED : LockStatus.BUSY,
+                acquired ? wrap(selected, path, mode) : selected);
     }
 
     private void unlock(Path path, LockMode mode) {
         Path key = canonical(path);
         ReadWriteLock lock = locks.get(key);
-        if (lock == null) {
-            return;
-        }
+        if (lock == null) return;
         modeLock(lock, mode).unlock();
         cleanup(key);
     }
 
-    /**
-     * Removes the lock entry if no holders and no queued threads.
-     */
     private void cleanup(Path key) {
         ReadWriteLock lock = locks.get(key);
-        if (lock == null) {
-            return;
-        }
+        if (lock == null) return;
         ReentrantReadWriteLock rwLock = (ReentrantReadWriteLock) lock;
         if (rwLock.getReadLockCount() == 0
                 && rwLock.getWriteHoldCount() == 0
@@ -176,42 +98,20 @@ public final class PathLockRegistry {
     }
 
     /**
-     * Wraps a {@link Lock} so that {@link Lock#unlock()} triggers cleanup
-     * of the registry entry when no holders or waiters remain.
+     * Wraps a Lock so unlock() triggers cleanup of the registry entry.
      */
     private Lock wrap(Lock delegate, Path path, LockMode mode) {
         Path key = canonical(path);
         return new Lock() {
-            @Override
-            public void lock() {
-                delegate.lock();
-            }
-
-            @Override
-            public void lockInterruptibly() throws InterruptedException {
-                delegate.lockInterruptibly();
-            }
-
-            @Override
-            public boolean tryLock() {
-                return delegate.tryLock();
-            }
-
-            @Override
-            public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
-                return delegate.tryLock(time, unit);
-            }
-
-            @Override
-            public void unlock() {
+            @Override public void lock() { delegate.lock(); }
+            @Override public void lockInterruptibly() throws InterruptedException { delegate.lockInterruptibly(); }
+            @Override public boolean tryLock() { return delegate.tryLock(); }
+            @Override public boolean tryLock(long time, TimeUnit unit) throws InterruptedException { return delegate.tryLock(time, unit); }
+            @Override public void unlock() {
                 delegate.unlock();
                 cleanup(key);
             }
-
-            @Override
-            public Condition newCondition() {
-                return delegate.newCondition();
-            }
+            @Override public Condition newCondition() { return delegate.newCondition(); }
         };
     }
 }

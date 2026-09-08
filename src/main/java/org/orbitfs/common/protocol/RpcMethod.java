@@ -1,8 +1,7 @@
 package org.orbitfs.common.protocol;
 
 /**
- * Fixed set of RPC methods understood by the server.
- * Jackson serializes enums as their {@code name()} string, so wire values stay "OPEN", "READ", etc.
+ * RPC methods understood by the server.
  */
 public enum RpcMethod {
     PING,
