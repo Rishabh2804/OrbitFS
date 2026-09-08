@@ -13,5 +13,11 @@ public interface OrbitFSClient extends AutoCloseable {
     int write(String handleId, long offset, byte[] data) throws IOException;
     void close(String handleId) throws IOException;
     FileStat stat(String handleId) throws IOException;
+
+    /**
+     * List directory contents. Returns entry names.
+     */
+    java.util.List<String> list(String handleId) throws IOException;
+
     @Override void close() throws IOException;
 }

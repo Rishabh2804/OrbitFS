@@ -49,4 +49,6 @@ public class OrbitCli implements Callable<Integer> {
         transport.connect();
         return new CachingOrbitFSClient(transport);
     }
+
+    public String getHost() { return host; }
 }

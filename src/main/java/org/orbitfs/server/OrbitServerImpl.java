@@ -35,6 +35,7 @@ public class OrbitServerImpl implements OrbitServer {
     private final ExecutorService executor;
     private final StorageEngine engine;
     private final PathLockRegistry lockRegistry;
+    private final SandboxGuard sandbox;
 
     /** Map of RpcMethod → handler. Extensible for future methods. */
     private final Map<RpcMethod, BiFunction<RPCRequest, StorageEngine, RPCResponse>> handlers;
@@ -43,13 +44,22 @@ public class OrbitServerImpl implements OrbitServer {
     private final AtomicLong requestCount = new AtomicLong();
 
     public OrbitServerImpl(int port) {
-        this(port, new StorageEngine(), new PathLockRegistry());
+        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(System.getProperty("user.home")));
+    }
+
+    public OrbitServerImpl(int port, Path root) {
+        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(root));
     }
 
     public OrbitServerImpl(int port, StorageEngine engine, PathLockRegistry lockRegistry) {
+        this(port, engine, lockRegistry, new SandboxGuard(System.getProperty("user.home")));
+    }
+
+    public OrbitServerImpl(int port, StorageEngine engine, PathLockRegistry lockRegistry, SandboxGuard sandbox) {
         this.port = port;
         this.engine = engine;
         this.lockRegistry = lockRegistry;
+        this.sandbox = sandbox;
         this.executor = newVirtualThreadPerTaskExecutor();
         this.handlers = new HashMap<>();
         registerHandlers();
@@ -57,27 +67,31 @@ public class OrbitServerImpl implements OrbitServer {
 
     private void registerHandlers() {
         handlers.put(RpcMethod.PING, (req, eng) ->
-                new RPCResponse(req.requestId(), RPCStatus.PONG, 0, 0, null, null, null));
+                new RPCResponse(req.requestId(), RPCStatus.PONG, 0, 0, null, null, null, null));
 
         handlers.put(RpcMethod.OPEN, (req, eng) -> {
-            String fd;
             try {
-                fd = withLock(req.path(), false, () -> {
-                    if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(req.path()))) {
-                        return req.path();
+                java.nio.file.Path resolved = sandbox.resolve(req.path());
+                String validatedPath = resolved.toString();
+                String fd = withLock(validatedPath, false, () -> {
+                    if (java.nio.file.Files.isDirectory(resolved)) {
+                        return validatedPath;
                     }
-                    return eng.open(req.path());
+                    return eng.open(validatedPath);
                 });
+                return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, fd, null, null, null);
+            } catch (SecurityException e) {
+                LOGGER.warn("Sandbox violation on OPEN: {}", e.getMessage());
+                return RPCResponse.error(req.requestId(), 2);
             } catch (StorageException e) {
                 return RPCResponse.error(req.requestId(), 1);
             }
-            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, fd, null, null);
         });
 
         handlers.put(RpcMethod.READ, (req, eng) -> {
             byte[] data = withLock(req.fd(), false, () -> eng.read(req.fd(), req.offset(), req.count()));
             String dataB64 = data.length > 0 ? Base64.getEncoder().encodeToString(data) : null;
-            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, data.length, null, dataB64, null);
+            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, data.length, null, dataB64, null, null);
         });
 
         handlers.put(RpcMethod.WRITE, (req, eng) -> {
@@ -85,7 +99,7 @@ public class OrbitServerImpl implements OrbitServer {
                     ? Base64.getDecoder().decode(req.dataBase64())
                     : new byte[0];
             int written = withLock(req.fd(), true, () -> eng.write(req.fd(), req.offset(), data));
-            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, written, null, null, null);
+            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, written, null, null, null, null);
         });
 
         handlers.put(RpcMethod.CLOSE, (req, eng) -> {
@@ -96,7 +110,7 @@ public class OrbitServerImpl implements OrbitServer {
             } catch (StorageException e) {
                 return RPCResponse.error(req.requestId(), 1);
             }
-            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, null);
+            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, null, null);
         });
 
         handlers.put(RpcMethod.STAT, (req, eng) -> {
@@ -115,7 +129,34 @@ public class OrbitServerImpl implements OrbitServer {
             }
             RPCResponse.RPCStat rpcStat = new RPCResponse.RPCStat(
                     stat.size(), stat.isDirectory(), stat.lastModifiedMillis());
-            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, rpcStat);
+            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, rpcStat, null);
+        });
+
+        handlers.put(RpcMethod.LIST, (req, eng) -> {
+            try {
+                java.util.List<RPCResponse.RPCEntry> entries = withLock(req.fd(), false, () -> {
+                    java.nio.file.Path dir = java.nio.file.Path.of(req.fd());
+                    if (!java.nio.file.Files.isDirectory(dir)) {
+                        return java.util.List.of();
+                    }
+                    return java.nio.file.Files.list(dir)
+                            .filter(p -> !p.getFileName().toString().startsWith("."))
+                            .map(p -> new RPCResponse.RPCEntry(
+                                    p.getFileName().toString(),
+                                    java.nio.file.Files.isDirectory(p),
+                                    p.toFile().length()))
+                            .sorted((a, b) -> {
+                                boolean ad = a.isDir(), bd = b.isDir();
+                                if (ad && !bd) return -1;
+                                if (!ad && bd) return 1;
+                                return a.name().compareTo(b.name());
+                            })
+                            .toList();
+                });
+                return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, null, entries);
+            } catch (StorageException e) {
+                return RPCResponse.error(req.requestId(), 1);
+            }
         });
     }
 
@@ -182,7 +223,14 @@ public class OrbitServerImpl implements OrbitServer {
         try {
             handleConnection(socket);
         } catch (IOException ioe) {
-            LOGGER.info("Connection closed or interrupted: {}", socket, ioe);
+            String msg = ioe.getMessage();
+            if (msg != null && msg.contains("Socket closed")) {
+                // Expected during shutdown
+            } else if (ioe instanceof java.io.EOFException) {
+                LOGGER.info("Client disconnected: {}", socket);
+            } else {
+                LOGGER.warn("Connection error from {}: {}", socket, msg);
+            }
         }
     }
 
@@ -192,10 +240,14 @@ public class OrbitServerImpl implements OrbitServer {
         DataOutputStream out = new DataOutputStream(socket.getOutputStream());
 
         while (!socket.isClosed()) {
-            RPCRequest request = FrameCodec.decodeRequest(in);
-            RPCResponse response = dispatch(request);
-            out.write(FrameCodec.encodeResponse(response));
-            out.flush();
+            try {
+                RPCRequest request = FrameCodec.decodeRequest(in);
+                RPCResponse response = dispatch(request);
+                out.write(FrameCodec.encodeResponse(response));
+                out.flush();
+            } catch (java.io.EOFException | java.net.SocketException e) {
+                break;
+            }
         }
     }
 
