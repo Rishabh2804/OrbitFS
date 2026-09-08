@@ -60,7 +60,17 @@ public class OrbitServerImpl implements OrbitServer {
                 new RPCResponse(req.requestId(), RPCStatus.PONG, 0, 0, null, null, null));
 
         handlers.put(RpcMethod.OPEN, (req, eng) -> {
-            String fd = withLock(req.path(), false, () -> eng.open(req.path()));
+            String fd;
+            try {
+                fd = withLock(req.path(), false, () -> {
+                    if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(req.path()))) {
+                        return req.path();
+                    }
+                    return eng.open(req.path());
+                });
+            } catch (StorageException e) {
+                return RPCResponse.error(req.requestId(), 1);
+            }
             return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, fd, null, null);
         });
 
@@ -79,12 +89,30 @@ public class OrbitServerImpl implements OrbitServer {
         });
 
         handlers.put(RpcMethod.CLOSE, (req, eng) -> {
-            withLock(req.fd(), true, () -> { eng.close(req.fd()); return null; });
+            try {
+                if (!java.nio.file.Files.isDirectory(java.nio.file.Path.of(req.fd()))) {
+                    withLock(req.fd(), true, () -> { eng.close(req.fd()); return null; });
+                }
+            } catch (StorageException e) {
+                return RPCResponse.error(req.requestId(), 1);
+            }
             return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, null);
         });
 
         handlers.put(RpcMethod.STAT, (req, eng) -> {
-            FileStat stat = withLock(req.fd(), false, () -> eng.stat(req.fd()));
+            FileStat stat;
+            try {
+                stat = withLock(req.fd(), false, () -> {
+                    if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(req.fd()))) {
+                        long size = java.nio.file.Files.list(java.nio.file.Path.of(req.fd())).count();
+                        long mod = java.nio.file.Files.getLastModifiedTime(java.nio.file.Path.of(req.fd())).toMillis();
+                        return new FileStat(size, true, mod);
+                    }
+                    return eng.stat(req.fd());
+                });
+            } catch (StorageException e) {
+                return RPCResponse.error(req.requestId(), 1);
+            }
             RPCResponse.RPCStat rpcStat = new RPCResponse.RPCStat(
                     stat.size(), stat.isDirectory(), stat.lastModifiedMillis());
             return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, rpcStat);

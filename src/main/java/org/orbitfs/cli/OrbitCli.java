@@ -3,8 +3,6 @@ package org.orbitfs.cli;
 import org.orbitfs.client.CachingOrbitFSClient;
 import org.orbitfs.client.NetworkTransportClient;
 import org.orbitfs.client.OrbitFSClient;
-import org.orbitfs.server.OrbitServerImpl;
-
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -27,13 +25,13 @@ import java.util.concurrent.Callable;
 public class OrbitCli implements Callable<Integer> {
 
     @Option(names = {"--host"}, description = "Server host (default: ${DEFAULT-VALUE})")
-    private String host = "127.0.0.1";
+    private String host = Config.getHost();
 
     @Option(names = {"--port"}, description = "Server port (default: ${DEFAULT-VALUE})")
-    private int port = 9090;
+    private int port = Config.getPort();
 
     @Option(names = {"--timeout"}, description = "Timeout in ms (default: ${DEFAULT-VALUE})")
-    private long timeoutMs = 30_000;
+    private long timeoutMs = Config.getTimeoutMs();
 
     public static void main(String[] args) {
         int exitCode = new CommandLine(new OrbitCli()).execute(args);

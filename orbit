@@ -1,6 +1,21 @@
 #!/bin/zsh
 # orbit — OrbitFS CLI wrapper
-# Install: cp orbit /usr/local/bin/orbit
+# Usage: orbit <command> [args]
+#   orbit server --port 9090
+#   orbit cat /path/to/file
+#   orbit ls /Users/rishabh/Desktop
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Read defaults from ~/.orbitfs/config if it exists
+if [ -f "$HOME/.orbitfs/config" ]; then
+    source "$HOME/.orbitfs/config" 2>/dev/null || true
+fi
+
+# Use env vars from config if not already set
+: "${ORBITFS_HOST:=${ORBITFS_HOST:-127.0.0.1}}"
+: "${ORBITFS_PORT:=${ORBITFS_PORT:-9090}}"
+
+export ORBITFS_HOST ORBITFS_PORT
+
 exec java -jar "${SCRIPT_DIR}/build/libs/orbitfs-core-0.1.0.jar" "$@"
