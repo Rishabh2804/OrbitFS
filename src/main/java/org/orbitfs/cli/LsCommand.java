@@ -7,6 +7,8 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+import java.util.List;
+
 @Command(name = "ls",
         description = "List a file or directory from the remote filesystem.")
 public class LsCommand extends BaseCommand {
@@ -22,23 +24,41 @@ public class LsCommand extends BaseCommand {
         try (OrbitFSClient client = parent.connect()) {
             String handle = client.open(path);
             FileStat stat = client.stat(handle);
+
+            if (!stat.isDirectory()) {
+                if (longFormat) {
+                    System.out.printf("-rw-r--r--  %10d  %s%n", stat.size(), path);
+                } else {
+                    System.out.println(path);
+                }
+                client.close(handle);
+                return 0;
+            }
+
+            List<String> entries = client.list(handle);
+            String basePath = path.endsWith("/") ? path : path + "/";
+
             if (longFormat) {
-                formatLong(path, stat);
+                System.out.printf("total %d%n", entries.size());
+                for (String name : entries) {
+                    String entryPath = basePath + name;
+                    try {
+                        String subHandle = client.open(entryPath);
+                        FileStat eStat = client.stat(subHandle);
+                        String type = eStat.isDirectory() ? "drwxr-xr-x" : "-rw-r--r--";
+                        System.out.printf("%s  %10d  %s%n", type, eStat.size(), name);
+                        client.close(subHandle);
+                    } catch (Exception e) {
+                        System.out.printf("-??????????  %12s  %s%n", "", name);
+                    }
+                }
             } else {
-                formatShort(path, stat);
+                for (String name : entries) {
+                    System.out.println(name);
+                }
             }
             client.close(handle);
         }
         return 0;
-    }
-
-    private static void formatLong(String path, FileStat stat) {
-        String type = stat.isDirectory() ? "drwxr-xr-x" : "-rw-r--r--";
-        System.out.printf("%s  %10d  %s%n", type, stat.size(), path);
-    }
-
-    private static void formatShort(String path, FileStat stat) {
-        String prefix = stat.isDirectory() ? "d" : "-";
-        System.out.printf("%s %d %s%n", prefix, stat.size(), path);
     }
 }

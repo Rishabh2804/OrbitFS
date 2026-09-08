@@ -156,6 +156,16 @@ public final class NetworkTransportClient implements OrbitFSClient {
     }
 
     @Override
+    public java.util.List<String> list(String handleId) throws IOException {
+        RPCResponse response = send(RpcMethod.LIST, null, handleId, 0, 0, null);
+        java.util.List<RPCResponse.RPCEntry> entries = response.listing();
+        if (entries == null) return java.util.List.of();
+        return entries.stream()
+                .map(RPCResponse.RPCEntry::name)
+                .toList();
+    }
+
+    @Override
     public void close() throws IOException {
         if (closed) return;
         closed = true;
