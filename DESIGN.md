@@ -84,6 +84,9 @@ Still pending: Phase 1/2 proof tests (50×PING timing, 10W/20R corruption), cach
 4. Security sandbox: virtual root, path traversal rejection, frame size cap, hidden-file block
 5. Docs + end-to-end demo
 
+### Mobile / cross-platform use (Android TV, phones)
+Library API is the primary surface — no FUSE (root-reliant on Android) or CLI (awkward on TV remote). Apps depend on `orbitfs-core` directly and call `OrbitFSClient` Java/Kotlin methods. Optional: small Android lifecycle wrapper to manage connect/close around app pause/resume.
+
 ---
 
 ## 8. Diagrams
