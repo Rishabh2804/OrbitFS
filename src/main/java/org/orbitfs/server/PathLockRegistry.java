@@ -1,11 +1,13 @@
 package org.orbitfs.server;
 
 import org.orbitfs.common.model.LockResult;
+import org.orbitfs.common.model.LockResult.LockStatus;
 
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -15,18 +17,21 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * Allows multiple concurrent readers, exclusive writers.
  * Auto-cleans lock entries when no holders or waiters remain.
  */
-public class PathLockRegistry {
+public final class PathLockRegistry {
 
     private final Map<Path, ReadWriteLock> locks = new ConcurrentHashMap<>();
+
+    private enum LockMode {
+        READ,
+        WRITE
+    }
 
     /**
      * Returns the shared (read) lock for the given path.
      * Multiple readers can hold this lock concurrently.
      */
     public LockResult readLock(Path path) {
-        ReadWriteLock lock = getOrCreate(path);
-        lock.readLock().lock();
-        return LockResult.granted(lock.readLock());
+        return lock(path, LockMode.READ);
     }
 
     /**
@@ -34,9 +39,7 @@ public class PathLockRegistry {
      * Only one writer can hold this lock, excluding all readers.
      */
     public LockResult writeLock(Path path) {
-        ReadWriteLock lock = getOrCreate(path);
-        lock.writeLock().lock();
-        return LockResult.granted(lock.writeLock());
+        return lock(path, LockMode.WRITE);
     }
 
     /**
@@ -44,11 +47,7 @@ public class PathLockRegistry {
      * Returns GRANTED if acquired, BUSY otherwise.
      */
     public LockResult tryReadLock(Path path) {
-        ReadWriteLock lock = getOrCreate(path);
-        if (lock.readLock().tryLock()) {
-            return LockResult.granted(lock.readLock());
-        }
-        return LockResult.busy(lock.readLock());
+        return tryLock(path, LockMode.READ);
     }
 
     /**
@@ -56,35 +55,25 @@ public class PathLockRegistry {
      * Returns GRANTED if acquired, BUSY otherwise.
      */
     public LockResult tryWriteLock(Path path) {
-        ReadWriteLock lock = getOrCreate(path);
-        if (lock.writeLock().tryLock()) {
-            return LockResult.granted(lock.writeLock());
-        }
-        return LockResult.busy(lock.writeLock());
+        return tryLock(path, LockMode.WRITE);
     }
 
     /**
      * Attempts to acquire the read lock with timeout.
      * Returns GRANTED if acquired within timeout, BUSY otherwise.
      */
-    public LockResult tryReadLock(Path path, long timeout, TimeUnit unit) throws InterruptedException {
-        ReadWriteLock lock = getOrCreate(path);
-        if (lock.readLock().tryLock(timeout, unit)) {
-            return LockResult.granted(lock.readLock());
-        }
-        return LockResult.busy(lock.readLock());
+    public LockResult tryReadLock(Path path, long timeout, TimeUnit unit)
+            throws InterruptedException {
+        return tryLock(path, LockMode.READ, timeout, unit);
     }
 
     /**
      * Attempts to acquire the write lock with timeout.
      * Returns GRANTED if acquired within timeout, BUSY otherwise.
      */
-    public LockResult tryWriteLock(Path path, long timeout, TimeUnit unit) throws InterruptedException {
-        ReadWriteLock lock = getOrCreate(path);
-        if (lock.writeLock().tryLock(timeout, unit)) {
-            return LockResult.granted(lock.writeLock());
-        }
-        return LockResult.busy(lock.writeLock());
+    public LockResult tryWriteLock(Path path, long timeout, TimeUnit unit)
+            throws InterruptedException {
+        return tryLock(path, LockMode.WRITE, timeout, unit);
     }
 
     /**
@@ -92,11 +81,7 @@ public class PathLockRegistry {
      * Auto-cleans the lock entry if no holders or waiters remain.
      */
     public void unlockRead(Path path) {
-        ReadWriteLock lock = locks.get(canonical(path));
-        if (lock != null) {
-            lock.readLock().unlock();
-            cleanup(canonical(path));
-        }
+        unlock(path, LockMode.READ);
     }
 
     /**
@@ -104,22 +89,18 @@ public class PathLockRegistry {
      * Auto-cleans the lock entry if no holders or waiters remain.
      */
     public void unlockWrite(Path path) {
-        ReadWriteLock lock = locks.get(canonical(path));
-        if (lock != null) {
-            lock.writeLock().unlock();
-            cleanup(canonical(path));
-        }
+        unlock(path, LockMode.WRITE);
     }
 
     /**
-     * Returns the number of active locks.
+     * Returns the number of active lock entries.
      */
     public int size() {
         return locks.size();
     }
 
     /**
-     * Checks if a lock exists for the given path.
+     * Checks if a lock entry exists for the given path.
      */
     public boolean containsLock(Path path) {
         return locks.containsKey(canonical(path));
@@ -137,19 +118,100 @@ public class PathLockRegistry {
         return locks.computeIfAbsent(key, k -> new ReentrantReadWriteLock());
     }
 
+    private LockResult lock(Path path, LockMode mode) {
+        ReadWriteLock rwLock = getOrCreate(path);
+        Lock selected = modeLock(rwLock, mode);
+        selected.lock();
+        return LockResult.granted(wrap(selected, path, mode));
+    }
+
+    private LockResult tryLock(Path path, LockMode mode) {
+        ReadWriteLock rwLock = getOrCreate(path);
+        Lock selected = modeLock(rwLock, mode);
+        boolean acquired = selected.tryLock();
+        LockStatus status = acquired ? LockStatus.GRANTED : LockStatus.BUSY;
+        return new LockResult(status, acquired ? wrap(selected, path, mode) : selected);
+    }
+
+    private LockResult tryLock(Path path, LockMode mode, long timeout, TimeUnit unit)
+            throws InterruptedException {
+        ReadWriteLock rwLock = getOrCreate(path);
+        Lock selected = modeLock(rwLock, mode);
+        boolean acquired = selected.tryLock(timeout, unit);
+        LockStatus status = acquired ? LockStatus.GRANTED : LockStatus.BUSY;
+        return new LockResult(status, acquired ? wrap(selected, path, mode) : selected);
+    }
+
+    private void unlock(Path path, LockMode mode) {
+        Path key = canonical(path);
+        ReadWriteLock lock = locks.get(key);
+        if (lock == null) {
+            return;
+        }
+        modeLock(lock, mode).unlock();
+        cleanup(key);
+    }
+
     /**
      * Removes the lock entry if no holders and no queued threads.
-     * Safe to call concurrently; ConcurrentHashMap handles races.
      */
     private void cleanup(Path key) {
         ReadWriteLock lock = locks.get(key);
-        if (lock != null) {
-            ReentrantReadWriteLock rw = (ReentrantReadWriteLock) lock;
-            if (rw.getReadLockCount() == 0
-                    && rw.getWriteHoldCount() == 0
-                    && !rw.hasQueuedThreads()) {
-                locks.remove(key, lock);
-            }
+        if (lock == null) {
+            return;
         }
+        ReentrantReadWriteLock rwLock = (ReentrantReadWriteLock) lock;
+        if (rwLock.getReadLockCount() == 0
+                && rwLock.getWriteHoldCount() == 0
+                && !rwLock.hasQueuedThreads()) {
+            locks.remove(key, lock);
+        }
+    }
+
+    private Lock modeLock(ReadWriteLock lock, LockMode mode) {
+        return switch (mode) {
+            case READ -> lock.readLock();
+            case WRITE -> lock.writeLock();
+        };
+    }
+
+    /**
+     * Wraps a {@link Lock} so that {@link Lock#unlock()} triggers cleanup
+     * of the registry entry when no holders or waiters remain.
+     */
+    private Lock wrap(Lock delegate, Path path, LockMode mode) {
+        Path key = canonical(path);
+        return new Lock() {
+            @Override
+            public void lock() {
+                delegate.lock();
+            }
+
+            @Override
+            public void lockInterruptibly() throws InterruptedException {
+                delegate.lockInterruptibly();
+            }
+
+            @Override
+            public boolean tryLock() {
+                return delegate.tryLock();
+            }
+
+            @Override
+            public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+                return delegate.tryLock(time, unit);
+            }
+
+            @Override
+            public void unlock() {
+                delegate.unlock();
+                cleanup(key);
+            }
+
+            @Override
+            public Condition newCondition() {
+                return delegate.newCondition();
+            }
+        };
     }
 }
