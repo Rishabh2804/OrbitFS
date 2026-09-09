@@ -30,7 +30,7 @@ class OrbitServerImplTest {
     @Test
     void startRespondsToPingAndStopsCleanly() throws Exception {
         int port = freePort();
-        OrbitServerImpl server = new OrbitServerImpl(port);
+        OrbitServerImpl server = new OrbitServerImpl(port, tmpDir);
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Thread serverThread = new Thread(() -> {
             try {
@@ -67,7 +67,7 @@ class OrbitServerImplTest {
         Path file = tmpDir.resolve("rpc_lifecycle_" + UUID.randomUUID() + ".dat");
         int port = freePort();
 
-        OrbitServerImpl server = new OrbitServerImpl(port);
+        OrbitServerImpl server = new OrbitServerImpl(port, tmpDir);
         startServer(server, port);
 
         try (Socket socket = new Socket("127.0.0.1", port);
@@ -113,7 +113,7 @@ class OrbitServerImplTest {
     @Test
     void invalidHandleReturnsError() throws Exception {
         int port = freePort();
-        OrbitServerImpl server = new OrbitServerImpl(port);
+        OrbitServerImpl server = new OrbitServerImpl(port, tmpDir);
         startServer(server, port);
 
         try (Socket socket = new Socket("127.0.0.1", port);
