@@ -1,33 +1,47 @@
 package org.orbitfs.common.protocol;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import java.util.List;
 
 /**
  * RPC response: requestId + status + method-specific fields.
  */
 public record RPCResponse(
-        String requestId,
-        RPCStatus status,
-        int errorCode,
-        long bytesProcessed,
-        String fd,
-        String dataBase64,
-        RPCStat stat,
-        List<RPCEntry> listing) {
+        @JsonProperty("requestId") String requestId,
+        @JsonProperty("status") RPCStatus status,
+        @JsonProperty("errorCode") int errorCode,
+        @JsonProperty("bytesProcessed") long bytesProcessed,
+        @JsonProperty("fd") String fd,
+        @JsonProperty("dataBase64") String dataBase64,
+        @JsonProperty("stat") RPCStat stat,
+        @JsonProperty("listing") List<RPCEntry> listing) {
+
+    @JsonCreator
+    public RPCResponse {
+    }
 
     public static RPCResponse error(String requestId, int errorCode) {
         return new RPCResponse(requestId, RPCStatus.ERROR, errorCode, 0, null, null, null, null);
     }
 
     public record RPCStat(
-            long size,
-            boolean isDir,
-            long lastModified) {
+            @JsonProperty("size") long size,
+            @JsonProperty("isDir") boolean isDir,
+            @JsonProperty("lastModified") long lastModified) {
+
+        @JsonCreator
+        public RPCStat {
+        }
     }
 
     public record RPCEntry(
-            String name,
-            boolean isDir,
-            long size) {
+            @JsonProperty("name") String name,
+            @JsonProperty("isDir") boolean isDir,
+            @JsonProperty("size") long size) {
+
+        @JsonCreator
+        public RPCEntry {
+        }
     }
 }

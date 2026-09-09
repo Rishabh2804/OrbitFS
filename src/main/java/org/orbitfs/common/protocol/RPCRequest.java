@@ -1,14 +1,21 @@
 package org.orbitfs.common.protocol;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+
 /**
  * RPC request: requestId + method + method-specific fields.
  */
 public record RPCRequest(
-        String requestId,
-        RpcMethod method,
-        String path,
-        String fd,
-        long offset,
-        int count,
-        String dataBase64) {
+        @JsonProperty("requestId") String requestId,
+        @JsonProperty("method") RpcMethod method,
+        @JsonProperty("path") String path,
+        @JsonProperty("fd") String fd,
+        @JsonProperty("offset") long offset,
+        @JsonProperty("count") int count,
+        @JsonProperty("dataBase64") String dataBase64) {
+
+    @JsonCreator
+    public RPCRequest {
+    }
 }
