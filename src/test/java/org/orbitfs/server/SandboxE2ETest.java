@@ -26,7 +26,7 @@ class SandboxE2ETest {
     private static Path tmpDir;
 
     @Test
-    void serverRejectsPathTraversal() throws Exception {
+    void serverClampsPathTraversal() throws Exception {
         int port = freePort();
         OrbitServerImpl server = new OrbitServerImpl(port, tmpDir);
         startServer(server, port);
@@ -42,15 +42,20 @@ class SandboxE2ETest {
             out.flush();
 
             RPCResponse resp = FrameCodec.decodeResponse(in);
-            assertEquals(RPCStatus.ERROR, resp.status(),
-                    "Path traversal must be rejected with ERROR");
+            // Path traversal is clamped to root, so ../../etc/passwd resolves to root/etc/passwd
+            // which doesn't exist → StorageException (code 1), NOT a sandbox violation (code 2)
+            assertEquals(RPCStatus.ERROR, resp.status());
+            assertEquals(1, resp.errorCode(), "Should be storage error, not sandbox violation (code 2)");
         } finally {
             server.stop();
         }
     }
 
     @Test
-    void serverRejectsHiddenFiles() throws Exception {
+    void serverAllowsHiddenFilesByDefault() throws Exception {
+        Path file = tmpDir.resolve(".bashrc");
+        java.nio.file.Files.write(file, "hidden".getBytes());
+
         int port = freePort();
         OrbitServerImpl server = new OrbitServerImpl(port, tmpDir);
         startServer(server, port);
@@ -66,8 +71,29 @@ class SandboxE2ETest {
             out.flush();
 
             RPCResponse resp = FrameCodec.decodeResponse(in);
-            assertEquals(RPCStatus.ERROR, resp.status(),
-                    "Hidden files must be rejected with ERROR");
+            assertEquals(RPCStatus.OK, resp.status(),
+                    "Hidden files should be allowed by default");
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void serverFiltersHiddenFilesWhenFlagSet() throws Exception {
+        java.nio.file.Files.write(tmpDir.resolve(".hidden"), "secret".getBytes());
+        java.nio.file.Files.write(tmpDir.resolve("visible.txt"), "data".getBytes());
+
+        int port = freePort();
+        OrbitServerImpl server = new OrbitServerImpl(port, tmpDir, true);
+        startServer(server, port);
+
+        try (NetworkTransportClient client = new NetworkTransportClient("127.0.0.1", port, 30_000L)) {
+            client.connect();
+            String handle = client.open("");
+            var listing = client.list(handle);
+            assertTrue(listing.contains("visible.txt"));
+            assertFalse(listing.contains(".hidden"));
+            client.close(handle);
         } finally {
             server.stop();
         }

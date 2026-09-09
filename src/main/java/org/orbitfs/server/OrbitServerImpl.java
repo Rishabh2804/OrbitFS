@@ -36,6 +36,7 @@ public class OrbitServerImpl implements OrbitServer {
     private final StorageEngine engine;
     private final PathLockRegistry lockRegistry;
     private final SandboxGuard sandbox;
+    private final boolean hideHiddenFiles;
 
     /** Map of RpcMethod → handler. Extensible for future methods. */
     private final Map<RpcMethod, BiFunction<RPCRequest, StorageEngine, RPCResponse>> handlers;
@@ -44,22 +45,31 @@ public class OrbitServerImpl implements OrbitServer {
     private final AtomicLong requestCount = new AtomicLong();
 
     public OrbitServerImpl(int port) {
-        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(System.getProperty("user.home")));
+        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(System.getProperty("user.home")), false);
     }
 
     public OrbitServerImpl(int port, Path root) {
-        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(root));
+        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(root), false);
     }
 
     public OrbitServerImpl(int port, StorageEngine engine, PathLockRegistry lockRegistry) {
-        this(port, engine, lockRegistry, new SandboxGuard(System.getProperty("user.home")));
+        this(port, engine, lockRegistry, new SandboxGuard(System.getProperty("user.home")), false);
     }
 
     public OrbitServerImpl(int port, StorageEngine engine, PathLockRegistry lockRegistry, SandboxGuard sandbox) {
+        this(port, engine, lockRegistry, sandbox, false);
+    }
+
+    public OrbitServerImpl(int port, Path root, boolean hideHiddenFiles) {
+        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(root), hideHiddenFiles);
+    }
+
+    public OrbitServerImpl(int port, StorageEngine engine, PathLockRegistry lockRegistry, SandboxGuard sandbox, boolean hideHiddenFiles) {
         this.port = port;
         this.engine = engine;
         this.lockRegistry = lockRegistry;
         this.sandbox = sandbox;
+        this.hideHiddenFiles = hideHiddenFiles;
         this.executor = newVirtualThreadPerTaskExecutor();
         this.handlers = new HashMap<>();
         registerHandlers();
@@ -140,7 +150,7 @@ public class OrbitServerImpl implements OrbitServer {
                         return java.util.List.of();
                     }
                     return java.nio.file.Files.list(dir)
-                            .filter(p -> !p.getFileName().toString().startsWith("."))
+                            .filter(p -> !hideHiddenFiles || !p.getFileName().toString().startsWith("."))
                             .map(p -> new RPCResponse.RPCEntry(
                                     p.getFileName().toString(),
                                     java.nio.file.Files.isDirectory(p),

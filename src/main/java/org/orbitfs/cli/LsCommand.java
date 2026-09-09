@@ -2,6 +2,7 @@ package org.orbitfs.cli;
 
 import org.orbitfs.client.OrbitFSClient;
 import org.orbitfs.common.model.FileStat;
+import org.orbitfs.common.protocol.RPCResponse;
 
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -35,28 +36,20 @@ public class LsCommand extends BaseCommand {
                 return 0;
             }
 
-            List<String> entries = client.list(handle);
-            String basePath = path.endsWith("/") ? path : path + "/";
+        List<RPCResponse.RPCEntry> entries = client.listWithStat(handle);
+        String basePath = path.endsWith("/") ? path : path + "/";
 
-            if (longFormat) {
-                System.out.printf("total %d%n", entries.size());
-                for (String name : entries) {
-                    String entryPath = basePath + name;
-                    try {
-                        String subHandle = client.open(entryPath);
-                        FileStat eStat = client.stat(subHandle);
-                        String type = eStat.isDirectory() ? "drwxr-xr-x" : "-rw-r--r--";
-                        System.out.printf("%s  %10d  %s%n", type, eStat.size(), name);
-                        client.close(subHandle);
-                    } catch (Exception e) {
-                        System.out.printf("-??????????  %12s  %s%n", "", name);
-                    }
-                }
-            } else {
-                for (String name : entries) {
-                    System.out.println(name);
-                }
+        if (longFormat) {
+            System.out.printf("total %d%n", entries.size());
+            for (RPCResponse.RPCEntry entry : entries) {
+                String type = entry.isDir() ? "drwxr-xr-x" : "-rw-r--r--";
+                System.out.printf("%s  %10d  %s%n", type, entry.size(), entry.name());
             }
+        } else {
+            for (RPCResponse.RPCEntry entry : entries) {
+                System.out.println(entry.name());
+            }
+        }
             client.close(handle);
         }
         return 0;

@@ -1,6 +1,5 @@
 package org.orbitfs.server;
 
-import java.io.IOException;
 import java.nio.file.Path;
 
 /**
@@ -22,50 +21,56 @@ public final class SandboxGuard {
     /**
      * Resolves the given path within the sandbox.
      *
+     * <p>Path traversal via {@code ..} is clamped to the root — extra leading
+     * {@code ..} components that would escape above root are silently dropped,
+     * so paths like {@code "Downloads/../.."} resolve to {@code root}.</p>
+     *
+     * <p>Absolute paths within the sandbox root are accepted directly.
+     * Absolute paths outside root are rejected.</p>
+     *
      * @param path the client-provided path
      * @return the resolved, validated absolute path
-     * @throws SecurityException if the path escapes the sandbox
+     * @throws SecurityException if an absolute path escapes the sandbox
      */
     public Path resolve(String path) {
-        // Empty path = root directory (common for initial listing)
         if (path == null || path.isEmpty()) {
             return root;
         }
 
-        // Normalize separators
         String normalized = path.replace('\\', '/').trim();
         if (normalized.equals("/") || normalized.isEmpty()) {
             return root;
         }
 
-        // Handle absolute paths — if within root, use directly
-        Path pathObj = Path.of(normalized);
-        if (pathObj.isAbsolute()) {
-            Path resolved = pathObj.normalize();
+        // Handle absolute paths: within root is allowed, outside root is rejected
+        if (normalized.startsWith("/")) {
+            Path resolved = Path.of(normalized).normalize();
             if (resolved.startsWith(root)) {
                 return resolved;
             }
             throw new SecurityException("Path escape detected: " + path + " is outside sandbox root " + root);
         }
 
-        // Relative path — resolve within root
-        Path resolved = root.resolve(normalized).normalize();
-
-        // Check the resolved path is within root
-        if (!resolved.startsWith(root)) {
-            throw new SecurityException("Path escape detected: " + path + " resolves outside sandbox root " + root);
-        }
-
-        // Reject hidden files (starting with .)
-        Path relative = root.relativize(resolved);
-        for (Path component : relative) {
-            String name = component.toString();
-            if (name.startsWith(".") && !name.equals(".") && !name.equals("..")) {
-                throw new SecurityException("Access denied to hidden file/dir: " + name);
+        // Build a stack of path components relative to root, clamping .. to root
+        var components = new java.util.ArrayDeque<String>();
+        for (String part : normalized.split("/")) {
+            if (part.isEmpty() || part.equals(".")) {
+                continue;
             }
+            if (part.equals("..")) {
+                if (!components.isEmpty()) {
+                    components.removeLast();
+                }
+                continue;
+            }
+            components.add(part);
         }
 
-        return resolved;
+        Path result = root;
+        for (String component : components) {
+            result = result.resolve(component);
+        }
+        return result;
     }
 
     public Path getRoot() {
