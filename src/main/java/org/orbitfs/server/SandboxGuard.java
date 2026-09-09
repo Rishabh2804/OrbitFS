@@ -31,8 +31,24 @@ public final class SandboxGuard {
             throw new SecurityException("Empty path");
         }
 
-        // Reject absolute paths that try to escape — resolve relative to root
-        Path resolved = root.resolve(path).normalize();
+        // Normalize separators
+        String normalized = path.replace('\\', '/').trim();
+        if (normalized.equals("/") || normalized.isEmpty()) {
+            return root;
+        }
+
+        // Handle absolute paths — if within root, use directly
+        Path pathObj = Path.of(normalized);
+        if (pathObj.isAbsolute()) {
+            Path resolved = pathObj.normalize();
+            if (resolved.startsWith(root)) {
+                return resolved;
+            }
+            throw new SecurityException("Path escape detected: " + path + " is outside sandbox root " + root);
+        }
+
+        // Relative path — resolve within root
+        Path resolved = root.resolve(normalized).normalize();
 
         // Check the resolved path is within root
         if (!resolved.startsWith(root)) {
