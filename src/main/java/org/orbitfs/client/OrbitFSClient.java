@@ -19,5 +19,11 @@ public interface OrbitFSClient extends AutoCloseable {
      */
     java.util.List<String> list(String handleId) throws IOException;
 
+    /**
+     * List directory contents with stat info. Returns entries with name,
+     * isDir, and size — avoids a separate stat() per entry.
+     */
+    java.util.List<org.orbitfs.common.protocol.RPCResponse.RPCEntry> listWithStat(String handleId) throws IOException;
+
     @Override void close() throws IOException;
 }

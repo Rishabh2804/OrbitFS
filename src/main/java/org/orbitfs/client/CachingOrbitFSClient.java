@@ -93,6 +93,11 @@ public final class CachingOrbitFSClient implements OrbitFSClient {
     }
 
     @Override
+    public java.util.List<org.orbitfs.common.protocol.RPCResponse.RPCEntry> listWithStat(String handleId) throws IOException {
+        return delegate.listWithStat(handleId);
+    }
+
+    @Override
     public void close() throws IOException {
         cache.close();
         delegate.close();
