@@ -27,8 +27,9 @@ public final class SandboxGuard {
      * @throws SecurityException if the path escapes the sandbox
      */
     public Path resolve(String path) {
+        // Empty path = root directory (common for initial listing)
         if (path == null || path.isEmpty()) {
-            throw new SecurityException("Empty path");
+            return root;
         }
 
         // Normalize separators
