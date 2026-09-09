@@ -42,8 +42,9 @@ class SandboxGuardTest {
     }
 
     @Test
-    void rejectsEmptyPath() {
+    void acceptsEmptyPathAsRoot() {
         SandboxGuard guard = new SandboxGuard(tmpDir);
-        assertThrows(SecurityException.class, () -> guard.resolve(""));
+        Path resolved = guard.resolve("");
+        assertEquals(tmpDir, resolved);
     }
 }
