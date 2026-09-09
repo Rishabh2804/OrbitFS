@@ -32,7 +32,7 @@ class CachingClientTest {
         java.nio.file.Files.write(file, chunk);
 
         int port = freePort();
-        OrbitServerImpl server = new OrbitServerImpl(port);
+        OrbitServerImpl server = new OrbitServerImpl(port, tmpDir);
         startServer(server, port);
 
         try (NetworkTransportClient transport = new NetworkTransportClient("127.0.0.1", port, 30_000L);

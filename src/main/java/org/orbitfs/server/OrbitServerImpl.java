@@ -35,6 +35,7 @@ public class OrbitServerImpl implements OrbitServer {
     private final ExecutorService executor;
     private final StorageEngine engine;
     private final PathLockRegistry lockRegistry;
+    private final SandboxGuard sandbox;
 
     /** Map of RpcMethod → handler. Extensible for future methods. */
     private final Map<RpcMethod, BiFunction<RPCRequest, StorageEngine, RPCResponse>> handlers;
@@ -43,13 +44,22 @@ public class OrbitServerImpl implements OrbitServer {
     private final AtomicLong requestCount = new AtomicLong();
 
     public OrbitServerImpl(int port) {
-        this(port, new StorageEngine(), new PathLockRegistry());
+        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(System.getProperty("user.home")));
+    }
+
+    public OrbitServerImpl(int port, Path root) {
+        this(port, new StorageEngine(), new PathLockRegistry(), new SandboxGuard(root));
     }
 
     public OrbitServerImpl(int port, StorageEngine engine, PathLockRegistry lockRegistry) {
+        this(port, engine, lockRegistry, new SandboxGuard(System.getProperty("user.home")));
+    }
+
+    public OrbitServerImpl(int port, StorageEngine engine, PathLockRegistry lockRegistry, SandboxGuard sandbox) {
         this.port = port;
         this.engine = engine;
         this.lockRegistry = lockRegistry;
+        this.sandbox = sandbox;
         this.executor = newVirtualThreadPerTaskExecutor();
         this.handlers = new HashMap<>();
         registerHandlers();
@@ -60,18 +70,22 @@ public class OrbitServerImpl implements OrbitServer {
                 new RPCResponse(req.requestId(), RPCStatus.PONG, 0, 0, null, null, null, null));
 
         handlers.put(RpcMethod.OPEN, (req, eng) -> {
-            String fd;
             try {
-                fd = withLock(req.path(), false, () -> {
-                    if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(req.path()))) {
-                        return req.path();
+                java.nio.file.Path resolved = sandbox.resolve(req.path());
+                String validatedPath = resolved.toString();
+                String fd = withLock(validatedPath, false, () -> {
+                    if (java.nio.file.Files.isDirectory(resolved)) {
+                        return validatedPath;
                     }
-                    return eng.open(req.path());
+                    return eng.open(validatedPath);
                 });
+                return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, fd, null, null, null);
+            } catch (SecurityException e) {
+                LOGGER.warn("Sandbox violation on OPEN: {}", e.getMessage());
+                return RPCResponse.error(req.requestId(), 2);
             } catch (StorageException e) {
                 return RPCResponse.error(req.requestId(), 1);
             }
-            return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, fd, null, null, null);
         });
 
         handlers.put(RpcMethod.READ, (req, eng) -> {
@@ -126,6 +140,7 @@ public class OrbitServerImpl implements OrbitServer {
                         return java.util.List.of();
                     }
                     return java.nio.file.Files.list(dir)
+                            .filter(p -> !p.getFileName().toString().startsWith("."))
                             .map(p -> new RPCResponse.RPCEntry(
                                     p.getFileName().toString(),
                                     java.nio.file.Files.isDirectory(p),

@@ -30,7 +30,7 @@ class ConcurrencyStressTest {
         Path file = tmpDir.resolve("stress_" + UUID.randomUUID() + ".dat");
 
         int port = freePort();
-        OrbitServerImpl server = new OrbitServerImpl(port);
+        OrbitServerImpl server = new OrbitServerImpl(port, tmpDir);
         startServer(server, port);
 
         int writerCount = 10;

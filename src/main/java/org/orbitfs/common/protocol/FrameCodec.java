@@ -16,6 +16,9 @@ public final class FrameCodec {
     private static final int HEADER_SIZE = 8;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    /** Max frame payload (JSON): 10MB */
+    public static final int MAX_FRAME_SIZE = 10 * 1024 * 1024;
+
     private FrameCodec() {}
 
     public static byte[] encode(Object payload) throws IOException {
@@ -33,6 +36,7 @@ public final class FrameCodec {
         if (magic != MAGIC) throw new IOException("bad magic: 0x" + Integer.toHexString(magic));
         int len = in.readInt();
         if (len <= 0) throw new IOException("bad length: " + len);
+        if (len > MAX_FRAME_SIZE) throw new IOException("frame too large: " + len + " > " + MAX_FRAME_SIZE);
         byte[] body = in.readNBytes(len);
         if (body.length < len) throw new IOException("truncated payload: expected " + len + ", got " + body.length);
         return MAPPER.readValue(body, type);
