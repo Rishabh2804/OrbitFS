@@ -1,6 +1,7 @@
 package org.orbitfs.common.protocol;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -14,7 +15,8 @@ public final class FrameCodec {
 
     private static final int MAGIC = 0x4F524254; // "ORBT"
     private static final int HEADER_SIZE = 8;
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new Jdk8Module());
 
     /** Max frame payload (JSON): 10MB */
     public static final int MAX_FRAME_SIZE = 10 * 1024 * 1024;

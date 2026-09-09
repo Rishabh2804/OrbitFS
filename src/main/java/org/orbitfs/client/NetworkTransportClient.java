@@ -56,7 +56,8 @@ public final class NetworkTransportClient implements OrbitFSClient {
         socket.setTcpNoDelay(true);
         in = new DataInputStream(socket.getInputStream());
         out = new DataOutputStream(socket.getOutputStream());
-        readerThread = Thread.ofVirtual().start(this::readLoop);
+        readerThread = new Thread(this::readLoop, "orbitfs-reader-" + host + ":" + port);
+        readerThread.start();
     }
 
     private void readLoop() {
@@ -108,7 +109,7 @@ public final class NetworkTransportClient implements OrbitFSClient {
             throw new RuntimeException("Timed out after " + this.timeout + "ms", toe);
         } catch (ExecutionException execE) {
             Throwable cause = execE.getCause();
-            if (cause instanceof RuntimeException re) throw re;
+            if (cause instanceof RuntimeException) throw (RuntimeException) cause;
             throw new RuntimeException(cause);
         }
     }
