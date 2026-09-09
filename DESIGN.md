@@ -81,7 +81,7 @@ Still pending: Phase 1/2 proof tests (50×PING timing, 10W/20R corruption), cach
 1. **Server dispatch → frames** (next, unblocks all below)
 2. Run spec's Phase 1/2 proofs (50× concurrent PING timing; 10 writer / 20 reader corruption check)
 3. Wire `LRUChunkCache` into the client, verify 1-RPC target
-4. Security sandbox: virtual root, path traversal rejection, frame size cap, hidden-file block
+4. Security sandbox: virtual root, path traversal rejection, frame size cap, hidden-file block — **see Capsule project**
 5. Docs + end-to-end demo
 
 ### Mobile / cross-platform use (Android TV, phones)
