@@ -12,5 +12,7 @@ public enum RpcMethod {
     CLOSE,
     STAT,
     LIST,
-    FILE_WRITE
+    FILE_WRITE,
+    DELETE,
+    RENAME
 }

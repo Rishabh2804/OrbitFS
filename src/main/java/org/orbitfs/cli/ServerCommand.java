@@ -18,11 +18,14 @@ public class ServerCommand extends BaseCommand {
             defaultValue = "${env:HOME}${sys:file.separator}")
     private Path rootDir;
 
+    @Option(names = {"--no-hidden-files"}, description = "Filter out hidden files (starting with .) from listings.")
+    private boolean noHiddenFiles = false;
+
     @Override
     public Integer call() throws Exception {
         System.out.printf("orbit: server listening on %s:%d, root=%s%n",
                 parent.getHost(), port, rootDir);
-        new OrbitServerImpl(port, rootDir).start();
+        new OrbitServerImpl(port, rootDir, noHiddenFiles).start();
         return 0;
     }
 }

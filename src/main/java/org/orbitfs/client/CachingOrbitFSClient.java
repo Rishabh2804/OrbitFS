@@ -40,17 +40,45 @@ public final class CachingOrbitFSClient implements OrbitFSClient {
             return delegate.read(handleId, offset, count);
         }
 
-        long chunkIndex = offset / LRUChunkCache.CHUNK_SIZE;
-        byte[] cached = cache.get(path, chunkIndex);
-        if (cached != null) {
-            return slice(cached, offset, count);
+        long endOffset = offset + count;
+        long firstChunkIndex = offset / LRUChunkCache.CHUNK_SIZE;
+        long lastChunkIndex = (endOffset - 1) / LRUChunkCache.CHUNK_SIZE;
+        int totalResult = (int) (endOffset - offset);
+        
+        if (lastChunkIndex - firstChunkIndex < 1) {
+            byte[] cached = cache.get(path, firstChunkIndex);
+            if (cached != null) {
+                return slice(cached, offset, count);
+            }
+            byte[] chunk = delegate.read(handleId, firstChunkIndex * LRUChunkCache.CHUNK_SIZE, LRUChunkCache.CHUNK_SIZE);
+            if (chunk.length == LRUChunkCache.CHUNK_SIZE) {
+                cache.put(path, firstChunkIndex, chunk);
+            }
+            return slice(chunk, offset, count);
         }
-
-        byte[] chunk = delegate.read(handleId, chunkIndex * LRUChunkCache.CHUNK_SIZE, LRUChunkCache.CHUNK_SIZE);
-        if (chunk.length == LRUChunkCache.CHUNK_SIZE) {
-            cache.put(path, chunkIndex, chunk);
+        
+        java.io.ByteArrayOutputStream result = new java.io.ByteArrayOutputStream(totalResult);
+        long currentChunk = firstChunkIndex;
+        int currentOffset = (int) (offset % LRUChunkCache.CHUNK_SIZE);
+        while (result.size() < totalResult && currentChunk <= lastChunkIndex) {
+            byte[] cached = cache.get(path, currentChunk);
+            byte[] chunk;
+            if (cached != null) {
+                chunk = cached;
+            } else {
+                chunk = delegate.read(handleId, currentChunk * LRUChunkCache.CHUNK_SIZE, LRUChunkCache.CHUNK_SIZE);
+                if (chunk.length == LRUChunkCache.CHUNK_SIZE) {
+                    cache.put(path, currentChunk, chunk);
+                }
+            }
+            int toCopy = Math.min(chunk.length - currentOffset, totalResult - result.size());
+            if (toCopy > 0) {
+                result.write(chunk, currentOffset, toCopy);
+            }
+            currentOffset = 0;
+            currentChunk++;
         }
-        return slice(chunk, offset, count);
+        return result.toByteArray();
     }
 
     @Override
@@ -94,7 +122,24 @@ public final class CachingOrbitFSClient implements OrbitFSClient {
 
     @Override
     public java.util.List<org.orbitfs.common.protocol.RPCResponse.RPCEntry> listWithStat(String handleId) throws IOException {
-        return delegate.listWithStat(handleId);
+        return listWithStat(handleId, false);
+    }
+
+    @Override
+    public java.util.List<org.orbitfs.common.protocol.RPCResponse.RPCEntry> listWithStat(String handleId, boolean showHidden) throws IOException {
+        return delegate.listWithStat(handleId, showHidden);
+    }
+
+    @Override
+    public void delete(String path) throws IOException {
+        cache.invalidate(path);
+        delegate.delete(path);
+    }
+
+    @Override
+    public void rename(String path, String newPath) throws IOException {
+        cache.invalidate(path);
+        delegate.rename(path, newPath);
     }
 
     @Override

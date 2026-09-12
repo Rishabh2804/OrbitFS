@@ -6,7 +6,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
 @Command(name = "rm",
-        description = "Delete a file (not yet implemented on server).")
+        description = "Delete a file or directory.")
 public class RmCommand extends BaseCommand {
 
     @Parameters(index = "0", description = "Path to delete.")
@@ -15,10 +15,9 @@ public class RmCommand extends BaseCommand {
     @Override
     public Integer call() throws Exception {
         try (OrbitFSClient client = parent.connect()) {
-            String handle = client.open(path);
-            System.err.println("orbit: rm: not yet implemented (server DELETE method pending)");
-            client.close(handle);
+            client.delete(path);
+            System.err.println("orbit: rm: deleted " + path);
+            return 0;
         }
-        return 1;
     }
 }

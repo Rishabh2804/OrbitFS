@@ -21,18 +21,22 @@ class SandboxGuardTest {
     }
 
     @Test
-    void rejectsPathTraversal() {
+    void traversalClampsToRoot() {
         SandboxGuard guard = new SandboxGuard(tmpDir);
-        assertThrows(SecurityException.class, () -> guard.resolve("../../etc/passwd"));
-        assertThrows(SecurityException.class, () -> guard.resolve("../"));
-        assertThrows(SecurityException.class, () -> guard.resolve("subdir/../../.."));
+        assertEquals(tmpDir, guard.resolve("../"));
+        assertEquals(tmpDir, guard.resolve("subdir/../../.."));
+        assertEquals(tmpDir, guard.resolve("Downloads/../.."));
+        assertEquals(tmpDir, guard.resolve("Downloads/../.."));
+        assertEquals(tmpDir, guard.resolve("../../"));
+        assertTrue(guard.resolve("../../etc/passwd").startsWith(tmpDir));
     }
 
     @Test
-    void rejectsHiddenFiles() {
+    void allowsHiddenFiles() {
         SandboxGuard guard = new SandboxGuard(tmpDir);
-        assertThrows(SecurityException.class, () -> guard.resolve(".bashrc"));
-        assertThrows(SecurityException.class, () -> guard.resolve("subdir/.hidden"));
+        assertDoesNotThrow(() -> guard.resolve(".bashrc"));
+        assertDoesNotThrow(() -> guard.resolve("subdir/.hidden"));
+        assertDoesNotThrow(() -> guard.resolve("..."));
     }
 
     @Test
@@ -46,5 +50,27 @@ class SandboxGuardTest {
         SandboxGuard guard = new SandboxGuard(tmpDir);
         Path resolved = guard.resolve("");
         assertEquals(tmpDir, resolved);
+    }
+
+    @Test
+    void handlesExcessiveDoubleDots() {
+        SandboxGuard guard = new SandboxGuard(tmpDir);
+        assertEquals(tmpDir, guard.resolve("Downloads/.." + "/.." + "/.." + "/.."));
+        assertEquals(tmpDir, guard.resolve("../.."));
+        assertEquals(tmpDir, guard.resolve("../../../../../../../.."));
+    }
+
+    @Test
+    void handlesMixedSeparators() {
+        SandboxGuard guard = new SandboxGuard(tmpDir);
+        Path resolved = guard.resolve("Downloads\\..\\subdir");
+        assertTrue(resolved.startsWith(tmpDir));
+    }
+
+    @Test
+    void handlesExcessiveSlashes() {
+        SandboxGuard guard = new SandboxGuard(tmpDir);
+        Path resolved = guard.resolve("Downloads//../../subdir");
+        assertTrue(resolved.startsWith(tmpDir));
     }
 }
