@@ -98,7 +98,7 @@ public class OrbitServerImpl implements OrbitServer {
             }
         });
 
-        handlers.put(RpcMethod.READ, (req, eng) -> {
+    handlers.put(RpcMethod.READ, (req, eng) -> {
             byte[] data = withLock(req.fd(), false, () -> eng.read(req.fd(), req.offset(), req.count()));
             String dataB64 = data.length > 0 ? Base64.getEncoder().encodeToString(data) : null;
             return new RPCResponse(req.requestId(), RPCStatus.OK, 0, data.length, null, dataB64, null, null);
@@ -130,7 +130,8 @@ public class OrbitServerImpl implements OrbitServer {
                     if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(req.fd()))) {
                         long size = java.nio.file.Files.list(java.nio.file.Path.of(req.fd())).count();
                         long mod = java.nio.file.Files.getLastModifiedTime(java.nio.file.Path.of(req.fd())).toMillis();
-                        return new FileStat(size, true, mod);
+                        long created = java.nio.file.Files.readAttributes(java.nio.file.Path.of(req.fd()), java.nio.file.attribute.BasicFileAttributes.class).creationTime().toMillis();
+                        return new FileStat(size, true, mod, created, "", "inode/directory", "drwxr-xr-x", getOwner(java.nio.file.Path.of(req.fd())));
                     }
                     return eng.stat(req.fd());
                 });
@@ -138,7 +139,8 @@ public class OrbitServerImpl implements OrbitServer {
                 return RPCResponse.error(req.requestId(), 1);
             }
             RPCResponse.RPCStat rpcStat = new RPCResponse.RPCStat(
-                    stat.size(), stat.isDirectory(), stat.lastModifiedMillis());
+                    stat.size(), stat.isDirectory(), stat.lastModifiedMillis(),
+                    stat.createdMillis(), stat.extension(), stat.mimeType(), stat.permissions(), stat.owner());
             return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, rpcStat, null);
         });
 
@@ -185,10 +187,25 @@ public class OrbitServerImpl implements OrbitServer {
                     }
                     return java.nio.file.Files.list(dir)
                             .filter(p -> showHidden || !p.getFileName().toString().startsWith("."))
-                            .map(p -> new RPCResponse.RPCEntry(
-                                    p.getFileName().toString(),
-                                    java.nio.file.Files.isDirectory(p),
-                                    p.toFile().length()))
+                            .map(p -> {
+                                String name = p.getFileName().toString();
+                                boolean isDir = java.nio.file.Files.isDirectory(p);
+                                long fileSize = isDir ? 0L : p.toFile().length();
+                                String ext = isDir ? "" : getFileExtension(name);
+                                String mime = "inode/directory";
+                                if (!isDir) {
+                                    try {
+                                        String probed = java.nio.file.Files.probeContentType(p);
+                                        mime = probed != null ? probed : "application/octet-stream";
+                                    } catch (Exception e) {
+                                        mime = "application/octet-stream";
+                                    }
+                                }
+                                long lastMod = p.toFile().lastModified();
+                                String perms = getPermissions(p, isDir);
+                                String fileOwner = getOwner(p);
+                                return new RPCResponse.RPCEntry(name, isDir, fileSize, lastMod, ext, mime, perms, fileOwner);
+                            })
                             .sorted((a, b) -> {
                                 boolean ad = a.isDir(), bd = b.isDir();
                                 if (ad && !bd) return -1;
@@ -202,6 +219,28 @@ public class OrbitServerImpl implements OrbitServer {
                 return RPCResponse.error(req.requestId(), 1);
             }
         });
+    }
+
+    private static String getFileExtension(String name) {
+        int dot = name.lastIndexOf('.');
+        return (dot > 0 && dot < name.length() - 1) ? name.substring(dot + 1).toLowerCase() : "";
+    }
+
+    private static String getPermissions(java.nio.file.Path p, boolean isDir) {
+        try {
+            java.nio.file.attribute.PosixFileAttributes attrs = java.nio.file.Files.readAttributes(p, java.nio.file.attribute.PosixFileAttributes.class);
+            return java.nio.file.attribute.PosixFilePermissions.toString(attrs.permissions());
+        } catch (Exception e) {
+            return isDir ? "drwxr-xr-x" : "-rw-r--r--";
+        }
+    }
+
+    private static String getOwner(java.nio.file.Path p) {
+        try {
+            return java.nio.file.Files.getOwner(p).getName();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     /**

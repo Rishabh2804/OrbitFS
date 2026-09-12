@@ -31,7 +31,10 @@ public class LsCommand extends BaseCommand {
 
             if (!stat.isDirectory()) {
                 if (longFormat) {
-                    System.out.printf("-rw-r--r--  %10d  %s%n", stat.size(), path);
+                    String perms = stat.permissions() != null && !stat.permissions().isEmpty() ? stat.permissions() : "rw-r--r--";
+                    String permsDisplay = "-" + perms;
+                    String owner = stat.owner() != null && !stat.owner().isEmpty() ? stat.owner() : "?";
+                    System.out.printf("%s  %10d  %-10s  %s%n", permsDisplay, stat.size(), owner, path);
                 } else {
                     System.out.println(path);
                 }
@@ -45,8 +48,11 @@ public class LsCommand extends BaseCommand {
         if (longFormat) {
             System.out.printf("total %d%n", entries.size());
             for (RPCResponse.RPCEntry entry : entries) {
-                String type = entry.isDir() ? "drwxr-xr-x" : "-rw-r--r--";
-                System.out.printf("%s  %10d  %s%n", type, entry.size(), entry.name());
+                String perms = entry.permissions() != null && !entry.permissions().isEmpty()
+                        ? entry.permissions() : (entry.isDir() ? "rwxr-xr-x" : "rw-r--r--");
+                String permsDisplay = (entry.isDir() ? "d" : "-") + perms;
+                String owner = entry.owner() != null && !entry.owner().isEmpty() ? entry.owner() : "?";
+                System.out.printf("%s  %10d  %-10s  %s%n", permsDisplay, entry.size(), owner, entry.name());
             }
         } else {
             for (RPCResponse.RPCEntry entry : entries) {
