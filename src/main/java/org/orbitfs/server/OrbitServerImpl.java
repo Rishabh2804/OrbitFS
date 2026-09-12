@@ -142,15 +142,49 @@ public class OrbitServerImpl implements OrbitServer {
             return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, rpcStat, null);
         });
 
+        handlers.put(RpcMethod.DELETE, (req, eng) -> {
+            try {
+                java.nio.file.Path resolved = sandbox.resolve(req.path());
+                java.nio.file.Files.deleteIfExists(resolved);
+                return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, null, null);
+            } catch (SecurityException e) {
+                LOGGER.warn("Sandbox violation on DELETE: {}", e.getMessage());
+                return RPCResponse.error(req.requestId(), 2);
+            } catch (java.io.IOException e) {
+                LOGGER.warn("Delete failed for {}: {}", req.path(), e.getMessage());
+                return RPCResponse.error(req.requestId(), 1);
+            }
+        });
+
+        handlers.put(RpcMethod.RENAME, (req, eng) -> {
+            String newPath = req.fd();
+            if (newPath == null) {
+                return RPCResponse.error(req.requestId(), 2);
+            }
+            try {
+                java.nio.file.Path resolved = sandbox.resolve(req.path());
+                java.nio.file.Path resolvedNew = sandbox.resolve(newPath);
+                java.nio.file.Files.move(resolved, resolvedNew);
+                return new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0, null, null, null, null);
+            } catch (SecurityException e) {
+                LOGGER.warn("Sandbox violation on RENAME: {}", e.getMessage());
+                return RPCResponse.error(req.requestId(), 2);
+            } catch (java.io.IOException e) {
+                LOGGER.warn("Rename failed for {}: {}", req.path(), e.getMessage());
+                return RPCResponse.error(req.requestId(), 1);
+            }
+        });
+
         handlers.put(RpcMethod.LIST, (req, eng) -> {
             try {
+                boolean showHidden = req.showHidden() != null ? req.showHidden() : !hideHiddenFiles;
                 java.util.List<RPCResponse.RPCEntry> entries = withLock(req.fd(), false, () -> {
                     java.nio.file.Path dir = java.nio.file.Path.of(req.fd());
                     if (!java.nio.file.Files.isDirectory(dir)) {
                         return java.util.List.of();
                     }
                     return java.nio.file.Files.list(dir)
-                            .filter(p -> !hideHiddenFiles || !p.getFileName().toString().startsWith("."))
+                            .filter(p -> showHidden || !p.getFileName().toString().startsWith("."))
                             .map(p -> new RPCResponse.RPCEntry(
                                     p.getFileName().toString(),
                                     java.nio.file.Files.isDirectory(p),
@@ -257,6 +291,9 @@ public class OrbitServerImpl implements OrbitServer {
                 out.flush();
             } catch (java.io.EOFException | java.net.SocketException e) {
                 break;
+            } catch (Exception e) {
+                LOGGER.warn("Error handling request: {}", e.getMessage());
+                break;
             }
         }
     }
@@ -271,6 +308,12 @@ public class OrbitServerImpl implements OrbitServer {
             return handler.apply(request, engine);
         } catch (StorageException e) {
             return RPCResponse.error(request.requestId(), 1);
+        } catch (RuntimeException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof StorageException) {
+                return RPCResponse.error(request.requestId(), 1);
+            }
+            throw e;
         }
     }
 

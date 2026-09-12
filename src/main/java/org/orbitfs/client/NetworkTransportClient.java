@@ -76,10 +76,15 @@ public final class NetworkTransportClient implements OrbitFSClient {
 
     private RPCResponse send(RpcMethod method, String path, String fd,
                              long offset, int count, byte[] data) throws IOException {
+        return send(method, path, fd, offset, count, data, null);
+    }
+
+    private RPCResponse send(RpcMethod method, String path, String fd,
+                             long offset, int count, byte[] data, Boolean showHidden) throws IOException {
         ensureConnected();
         String requestId = nextId();
         String dataB64 = (data != null) ? Base64.getEncoder().encodeToString(data) : null;
-        RPCRequest request = new RPCRequest(requestId, method, path, fd, offset, count, dataB64);
+        RPCRequest request = new RPCRequest(requestId, method, path, fd, offset, count, dataB64, showHidden);
 
         CompletableFuture<RPCResponse> future = new CompletableFuture<>();
         pending.put(requestId, future);
@@ -168,10 +173,25 @@ public final class NetworkTransportClient implements OrbitFSClient {
 
     @Override
     public java.util.List<RPCResponse.RPCEntry> listWithStat(String handleId) throws IOException {
-        RPCResponse response = send(RpcMethod.LIST, null, handleId, 0, 0, null);
+        return listWithStat(handleId, false);
+    }
+
+    @Override
+    public java.util.List<RPCResponse.RPCEntry> listWithStat(String handleId, boolean showHidden) throws IOException {
+        RPCResponse response = send(RpcMethod.LIST, null, handleId, 0, 0, null, showHidden);
         java.util.List<RPCResponse.RPCEntry> entries = response.listing();
         if (entries == null) return java.util.List.of();
         return entries;
+    }
+
+    @Override
+    public void delete(String path) throws IOException {
+        send(RpcMethod.DELETE, path, null, 0, 0, null);
+    }
+
+    @Override
+    public void rename(String path, String newPath) throws IOException {
+        send(RpcMethod.RENAME, path, newPath, 0, 0, null);
     }
 
     @Override

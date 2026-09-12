@@ -20,6 +20,9 @@ public class LsCommand extends BaseCommand {
     @Option(names = {"-l", "--long"}, description = "Long format (show metadata).")
     private boolean longFormat = false;
 
+    @Option(names = {"-a", "--all", "--hidden"}, description = "Include hidden files.")
+    private boolean showHidden = false;
+
     @Override
     public Integer call() throws Exception {
         try (OrbitFSClient client = parent.connect()) {
@@ -36,7 +39,7 @@ public class LsCommand extends BaseCommand {
                 return 0;
             }
 
-        List<RPCResponse.RPCEntry> entries = client.listWithStat(handle);
+        List<RPCResponse.RPCEntry> entries = client.listWithStat(handle, showHidden);
         String basePath = path.endsWith("/") ? path : path + "/";
 
         if (longFormat) {
