@@ -158,7 +158,8 @@ public final class NetworkTransportClient implements OrbitFSClient {
     public FileStat stat(String handleId) throws IOException {
         RPCResponse response = send(RpcMethod.STAT, null, handleId, 0, 0, null);
         RPCResponse.RPCStat rpcStat = response.stat();
-        return new FileStat(rpcStat.size(), rpcStat.isDir(), rpcStat.lastModified());
+        return new FileStat(rpcStat.size(), rpcStat.isDir(), rpcStat.lastModified(),
+                rpcStat.created(), rpcStat.extension(), rpcStat.mimeType(), rpcStat.permissions(), rpcStat.owner());
     }
 
     @Override
