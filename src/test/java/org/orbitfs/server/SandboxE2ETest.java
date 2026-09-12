@@ -37,7 +37,7 @@ class SandboxE2ETest {
 
             String requestId = UUID.randomUUID().toString();
             RPCRequest req = new RPCRequest(requestId, RpcMethod.OPEN,
-                    "../../etc/passwd", null, 0, 0, null);
+                    "../../etc/passwd", null, 0, 0, null, null);
             out.write(FrameCodec.encodeRequest(req));
             out.flush();
 
@@ -66,7 +66,7 @@ class SandboxE2ETest {
 
             String requestId = UUID.randomUUID().toString();
             RPCRequest req = new RPCRequest(requestId, RpcMethod.OPEN,
-                    ".bashrc", null, 0, 0, null);
+                    ".bashrc", null, 0, 0, null, null);
             out.write(FrameCodec.encodeRequest(req));
             out.flush();
 

@@ -47,7 +47,7 @@ class OrbitServerImplTest {
              DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
 
             String requestId = UUID.randomUUID().toString();
-            RPCRequest ping = new RPCRequest(requestId, RpcMethod.PING, null, null, 0, 0, null);
+            RPCRequest ping = new RPCRequest(requestId, RpcMethod.PING, null, null, 0, 0, null, null);
             out.write(FrameCodec.encodeRequest(ping));
             out.flush();
 
@@ -131,15 +131,15 @@ class OrbitServerImplTest {
     }
 
     private static RPCRequest req(RpcMethod method, String path) {
-        return new RPCRequest(UUID.randomUUID().toString(), method, path, null, 0, 0, null);
+        return new RPCRequest(UUID.randomUUID().toString(), method, path, null, 0, 0, null, null);
     }
 
     private static RPCRequest req(RpcMethod method, String fd, long offset, int count) {
-        return new RPCRequest(UUID.randomUUID().toString(), method, null, fd, offset, count, null);
+        return new RPCRequest(UUID.randomUUID().toString(), method, null, fd, offset, count, null, null);
     }
 
     private static RPCRequest req(RpcMethod method, String fd, long offset, int count, String dataB64) {
-        return new RPCRequest(UUID.randomUUID().toString(), method, null, fd, offset, count, dataB64);
+        return new RPCRequest(UUID.randomUUID().toString(), method, null, fd, offset, count, dataB64, null);
     }
 
     private static int freePort() throws IOException {

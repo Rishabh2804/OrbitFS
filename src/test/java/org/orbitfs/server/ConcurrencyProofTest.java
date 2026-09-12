@@ -48,7 +48,7 @@ class ConcurrencyProofTest {
                      DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
 
                     String requestId = UUID.randomUUID().toString();
-                    RPCRequest ping = new RPCRequest(requestId, RpcMethod.PING, null, null, 0, 0, null);
+                    RPCRequest ping = new RPCRequest(requestId, RpcMethod.PING, null, null, 0, 0, null, null);
                     out.write(FrameCodec.encodeRequest(ping));
                     out.flush();
 

@@ -19,9 +19,10 @@ class RpcDtoTest {
                 RpcMethod.FILE_WRITE,
                 "/data/logs/app.log",
                 "fd-99812-uuid",
-                1024,
+                1024L,
                 512,
-                "SGVsbG8gV29ybGQgRGlzdHJpYnV0ZWQgRmlsZSBTeXN0ZW0=");
+                "SGVsbG8gV29ybGQgRGlzdHJpYnV0ZWQgRmlsZSBTeXN0ZW0=",
+                null);
 
         String json = OrbitSerializer.toJson(in);
         RPCRequest out = OrbitSerializer.fromJson(json, RPCRequest.class);
