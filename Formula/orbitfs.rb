@@ -15,6 +15,10 @@ class Orbitfs < Formula
     end
   end
 
+  on_linux do
+    odie "OrbitFS is currently macOS-only. Build from source on Linux."
+  end
+
   def install
     jar_name = "orbit-macos-#{Hardware::CPU.arm? ? "arm64" : "x86_64"}.jar"
     libexec.install jar_name => "orbit.jar"
