@@ -8,7 +8,7 @@ class Orbitfs < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/Rishabh2804/OrbitFS/releases/download/v0.1.0/orbit-macos-arm64.jar"
-      sha256 "b1c0f50ed8cd29d6e0fcab32927ced82408fc1ef6d5d5e2dbb898fce0de7b9e4"
+      sha256 ""
     else
       url "https://github.com/Rishabh2804/OrbitFS/releases/download/v0.1.0/orbit-macos-x86_64.jar"
       sha256 ""
@@ -16,7 +16,7 @@ class Orbitfs < Formula
   end
 
   def install
-    (libexec/"orbit.jar").install url.split("/").last
+    libexec.install url.split("/").last => "orbit.jar"
     (bin/"orbit").write <<~EOS
       #!/bin/bash
       exec "#{Formula["openjdk"].opt_bin}/java" -jar "#{libexec}/orbit.jar" "$@"
