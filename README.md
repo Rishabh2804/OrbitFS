@@ -35,25 +35,29 @@ Java 21 · Gradle 9.3.1 · Jackson 2.18.2 · JUnit 5.11.4 · SLF4J 2.0.17 · Git
 
 ## Installation
 
-### Homebrew (macOS)
+> **Note:** OrbitFS is currently in a private repository. The installation
+> methods below will work once the repository is made public, or you can
+> build from source (recommended for now).
+
+### Build from source (always works)
+
+```bash
+git clone https://github.com/Rishabh2804/OrbitFS.git
+cd OrbitFS && ./gradlew jar
+java -jar build/libs/orbitfs-*.jar --help
+```
+
+### Homebrew (macOS - requires public repo)
 
 ```bash
 brew tap Rishabh2804/orbitfs https://github.com/Rishabh2804/OrbitFS
 brew install orbitfs
 ```
 
-### Install script (macOS)
+### Install script (macOS - requires public repo)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Rishabh2804/OrbitFS/main/bin/install.sh | bash
-```
-
-### Build from source
-
-```bash
-git clone https://github.com/Rishabh2804/OrbitFS.git
-cd OrbitFS && ./gradlew jar
-java -jar build/libs/orbitfs-*.jar --help
 ```
 
 ## Run it
