@@ -16,7 +16,7 @@ class Orbitfs < Formula
   end
 
   def install
-    jar_name = url.split("/").last
+    jar_name = "orbit-macos-#{Hardware::CPU.arm? ? "arm64" : "x86_64"}.jar"
     libexec.install jar_name => "orbit.jar"
     (bin/"orbit").write <<~EOS
       #!/bin/bash
