@@ -26,12 +26,14 @@ trap "rm -rf $TMP_DIR" EXIT
 
 echo "Downloading OrbitFS ${VERSION}..."
 URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
-curl -fL "$URL" -o "$TMP_DIR/orbit.jar"
 
-if [ ! -f "$TMP_DIR/orbit.jar" ]; then
-  echo "orbit: failed to download from $URL"
-  exit 1
+# Support private repos via GITHUB_TOKEN
+AUTH_HEADER=""
+if [ -n "${GITHUB_TOKEN}" ]; then
+  AUTH_HEADER="-H Authorization: Bearer ${GITHUB_TOKEN}"
 fi
+
+curl -fL ${AUTH_HEADER} "$URL" -o "$TMP_DIR/orbit.jar"
 
 echo "Installing to ${INSTALL_DIR}/orbit..."
 mkdir -p "$INSTALL_DIR"
