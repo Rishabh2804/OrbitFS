@@ -102,7 +102,7 @@ class ClientTest {
             case CLOSE -> new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0,
                     null, null, null, null);
             case STAT -> new RPCResponse(req.requestId(), RPCStatus.OK, 0, 0,
-                    null, null, new RPCResponse.RPCStat(4096, false, System.currentTimeMillis()), null);
+                    null, null, new RPCResponse.RPCStat(4096, false, System.currentTimeMillis(), 0L, "", "", "", ""), null);
             default -> RPCResponse.error(req.requestId(), 1);
         };
         out.write(FrameCodec.encodeResponse(resp));

@@ -28,7 +28,12 @@ public record RPCResponse(
     public record RPCStat(
             @JsonProperty("size") long size,
             @JsonProperty("isDir") boolean isDir,
-            @JsonProperty("lastModified") long lastModified) {
+            @JsonProperty("lastModified") long lastModified,
+            @JsonProperty("created") long created,
+            @JsonProperty("extension") String extension,
+            @JsonProperty("mimeType") String mimeType,
+            @JsonProperty("permissions") String permissions,
+            @JsonProperty("owner") String owner) {
 
         @JsonCreator
         public RPCStat {
@@ -38,7 +43,12 @@ public record RPCResponse(
     public record RPCEntry(
             @JsonProperty("name") String name,
             @JsonProperty("isDir") boolean isDir,
-            @JsonProperty("size") long size) {
+            @JsonProperty("size") long size,
+            @JsonProperty("lastModified") long lastModified,
+            @JsonProperty("extension") String extension,
+            @JsonProperty("mimeType") String mimeType,
+            @JsonProperty("permissions") String permissions,
+            @JsonProperty("owner") String owner) {
 
         @JsonCreator
         public RPCEntry {
