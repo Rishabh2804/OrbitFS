@@ -7,27 +7,20 @@ class Orbitfs < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      sha256 ""
+      url "https://github.com/Rishabh2804/OrbitFS/releases/download/v0.1.0/orbit-macos-arm64.jar"
+      sha256 "b1c0f50ed8cd29d6e0fcab32927ced82408fc1ef6d5d5e2dbb898fce0de7b9e4"
     else
+      url "https://github.com/Rishabh2804/OrbitFS/releases/download/v0.1.0/orbit-macos-x86_64.jar"
       sha256 ""
     end
-    url "https://github.com/Rishabh2804/OrbitFS/releases/download/v0.1.0/orbitfs-v0.1.0-macos.tar.gz"
-    version "0.1.0"
   end
 
   def install
-    (share_path = libexec/"share")
-    share_path.install "orbit.jar"
+    (libexec/"orbit.jar").install url.split("/").last
     (bin/"orbit").write <<~EOS
       #!/bin/bash
-      exec "#{Formula["openjdk"].opt_bin}/java" -jar "#{share_path}/orbit.jar" "$@"
+      exec "#{Formula["openjdk"].opt_bin}/java" -jar "#{libexec}/orbit.jar" "$@"
     EOS
-  end
-
-  def post_install
-    # Ensure JAVA_HOME is set for the wrapper
-    openjdk = Formula("openjdk")
-    ENV["JAVA_HOME"] = openjdk.opt_prefix
   end
 
   test do

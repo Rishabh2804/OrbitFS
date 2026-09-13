@@ -38,7 +38,7 @@ Java 21 · Gradle 9.3.1 · Jackson 2.18.2 · JUnit 5.11.4 · SLF4J 2.0.17 · Git
 ### Homebrew (macOS)
 
 ```bash
-brew tap Rishabh2804/orbitfs
+brew tap Rishabh2804/orbitfs https://github.com/Rishabh2804/OrbitFS
 brew install orbitfs
 ```
 

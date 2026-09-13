@@ -8,6 +8,8 @@ on:
 jobs:
   release:
     runs-on: macos-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -22,13 +24,20 @@ jobs:
           path: ~/.gradle
       - name: Build
         run: ./gradlew clean jar --no-daemon
-      - name: Move artifact
+      - name: Prepare artifacts
         run: |
           mkdir -p dist
-          cp build/libs/orbitfs-*.jar dist/orbit.jar
-          tar -czvf dist/orbitfs-${{ github.ref_name }}-macos.tar.gz -C dist orbit.jar
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "arm64" ]; then
+            cp build/libs/orbitfs-*.jar dist/orbit-macos-arm64.jar
+          else
+            cp build/libs/orbitfs-*.jar dist/orbit-macos-x86_64.jar
+          fi
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/orbitfs-${{ github.ref_name }}-macos.tar.gz
           tag_name: ${{ github.ref_name }}
+          title: "Release ${{ github.ref_name }}"
+          body: "OrbitFS CLI"
+          files: dist/orbit-macos-*.jar
+          fail_on_unmatched_files: true
