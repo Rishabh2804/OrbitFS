@@ -29,7 +29,7 @@ URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
 
 # Support private repos via GITHUB_TOKEN
 AUTH_HEADER=""
-if [ -n "${GITHUB_TOKEN}" ]; then
+if [ -n "${GITHUB_TOKEN:-}" ]; then
   AUTH_HEADER="-H Authorization: Bearer ${GITHUB_TOKEN}"
 fi
 
