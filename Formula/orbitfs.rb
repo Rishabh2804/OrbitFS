@@ -16,7 +16,8 @@ class Orbitfs < Formula
   end
 
   def install
-    libexec.install url.split("/").last => "orbit.jar"
+    jar_name = url.split("/").last
+    libexec.install jar_name => "orbit.jar"
     (bin/"orbit").write <<~EOS
       #!/bin/bash
       exec "#{Formula["openjdk"].opt_bin}/java" -jar "#{libexec}/orbit.jar" "$@"
