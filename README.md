@@ -33,6 +33,29 @@ Client App → OrbitFSClient → NetworkTransportClient → FrameCodec → TCP �
 
 Java 21 · Gradle 9.3.1 · Jackson 2.18.2 · JUnit 5.11.4 · SLF4J 2.0.17 · GitHub Actions (macOS, Temurin 21)
 
+## Installation
+
+### Homebrew (macOS)
+
+```bash
+brew tap Rishabh2804/orbitfs
+brew install orbitfs
+```
+
+### Install script (macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Rishabh2804/OrbitFS/main/bin/install.sh | bash
+```
+
+### Build from source
+
+```bash
+git clone https://github.com/Rishabh2804/OrbitFS.git
+cd OrbitFS && ./gradlew jar
+java -jar build/libs/orbitfs-*.jar --help
+```
+
 ## Run it
 
 ```bash
