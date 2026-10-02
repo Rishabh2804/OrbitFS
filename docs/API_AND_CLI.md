@@ -1,21 +1,52 @@
 # OrbitFS Core — API & CLI Integration Guide
 
-## 💻 Command-Line Interface (CLI)
+## 💻 Command-Line Interface (CLI Wrapper)
 
-Build and launch the standalone OrbitFS server directly from the command line:
+OrbitFS includes a clean CLI wrapper script (`orbit` / `./orbit`) that invokes the underlying JAR automatically.
 
+### 1. Installation
+
+#### Global Install (macOS)
 ```bash
-# Build standalone JAR executable
-./gradlew jar
-
-# Launch server on port 9090 exposing /Users/shared
-java -jar build/libs/orbitfs-core-0.1.0.jar --port 9090 --root /Users/shared
+curl -fsSL https://raw.githubusercontent.com/Rishabh2804/OrbitFS/main/bin/install.sh | bash
 ```
 
-### CLI Arguments
-- `--port <number>`: TCP port to listen on (Default: `9090`).
-- `--root <path>`: Local filesystem directory to share.
-- `--hide-hidden`: Filter hidden dotfiles (`.DS_Store`, `.git`) from directory listings.
+#### Build from Source
+```bash
+git clone https://github.com/Rishabh2804/OrbitFS.git
+cd OrbitFS
+./gradlew jar
+```
+
+---
+
+### 2. CLI Usage & Commands
+
+Once installed or compiled, invoke commands directly using `orbit` or `./orbit`:
+
+#### Start Server
+```bash
+# Launch OrbitFS file server on port 9090 sharing /Users/shared
+orbit server --port 9090 --root /Users/shared
+
+# Or via local repository wrapper
+./orbit server --port 9090 --root /Users/shared
+```
+
+#### Remote Filesystem Operations
+```bash
+# List remote directory
+orbit ls /Users/shared
+
+# Print file contents
+orbit cat /Users/shared/report.txt
+
+# Inspect file metadata
+orbit stat /Users/shared/report.txt
+
+# Delete file or directory
+orbit rm /Users/shared/temp.txt
+```
 
 ---
 

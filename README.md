@@ -47,11 +47,15 @@ For full architectural breakdown and threading models, see [docs/ARCHITECTURE.md
 For full code examples and CLI options, see [docs/API_AND_CLI.md](docs/API_AND_CLI.md).
 
 ```bash
-# Build standalone JAR
-./gradlew jar
+# 1. Quick Install (macOS)
+curl -fsSL https://raw.githubusercontent.com/Rishabh2804/OrbitFS/main/bin/install.sh | bash
 
-# Run server on port 9090 sharing /Users/shared
-java -jar build/libs/orbitfs-core-0.1.0.jar --port 9090 --root /Users/shared
+# 2. Launch OrbitFS Server
+orbit --port 9090 --root /Users/shared
+
+# Or build from source
+./gradlew jar
+./orbit --port 9090 --root /Users/shared
 ```
 
 ---
