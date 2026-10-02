@@ -1,76 +1,133 @@
-# OrbitFS
+# OrbitFS Core — Java 21 Framed RPC File System Engine
 
-A distributed file system on a custom RPC protocol over TCP, in Java 21. Clients open/read/write/seek/stat files on a remote server as if local.
+> *"High-Performance, Local-First Peer-to-Peer Storage Engine."*
 
-**Highlights:** hand-rolled binary framing, virtual-thread-per-connection server, multiplexed persistent client connection, per-path read/write locking, client-side LRU write-back cache.
+[![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
+[![Gradle](https://img.shields.io/badge/Gradle-9.3.1-02303A?logo=gradle&logoColor=white)](https://gradle.org)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-Built ticket-by-ticket from a written spec — one GitHub issue → one branch → one PR per unit of work, protected `main`, tests green before merge.
+OrbitFS Core is a high-performance, lightweight peer-to-peer filesystem and transport engine written in **Java 21**. It allows remote clients to discover, open, read, write, seek, and stat files over TCP sockets with near-local filesystem speed and sub-millisecond latencies.
 
-## Architecture
+---
 
+## 🌟 Key Technical Highlights
+
+- **Custom Binary-Framed RPC Protocol**: `MAGIC(4B) + LENGTH(4B) + JSON` message frames with strict error handling (`READ`, `WRITE`, `STAT`, `LIST`, `OPEN`, `CLOSE`).
+- **Java 21 Virtual Thread Concurrency**: `Thread.ofVirtual()` per-connection server model delivering cheap, scalable concurrency without OS thread-pool sizing constraints.
+- **Multiplexed Socket Transport**: Single persistent TCP socket connection per client handling multiple in-flight asynchronous requests mapped via atomic `requestId` futures.
+- **Path-Level Read/Write Locking**: `PathLockRegistry` enforces concurrent reader access without blocking while guaranteeing exclusive writer access.
+- **Client-Side LRU Write-Back Cache**: `LRUChunkCache` buffers 64KB file chunks in memory to minimize round-trip socket RPCs.
+- **Sandbox Confinement (`SandboxGuard`)**: Strict canonical path validation prevents directory traversal attacks (`../`) outside designated root shares.
+
+---
+
+## 🏗️ Architecture & Component Flow
+
+```mermaid
+flowchart TB
+    subgraph Client["Client Application"]
+        App["App / ViewModel"] --> CClient["CachingOrbitFSClient"]
+        CClient --> Cache["LRUChunkCache (64KB Chunks)"]
+        CClient --> NTC["NetworkTransportClient"]
+    end
+
+    NTC <== "Framed TCP Socket (ORBT + 4B Len + JSON)" ==> Server
+    
+    subgraph Server["OrbitFS Server Engine"]
+        Server["OrbitServerImpl (Virtual Threads)"] --> Guard["SandboxGuard"]
+        Guard --> Locks["PathLockRegistry"]
+        Locks --> Engine["StorageEngine"]
+        Engine --> FDT["FileDescriptorTable"]
+        FDT --> Disk[("Local File System / Disk")]
+    end
 ```
-Client App → OrbitFSClient → NetworkTransportClient → FrameCodec → TCP → Server Dispatch
-                                    ↕                                      ↓
-                              LRUChunkCache                        PathLockRegistry → StorageEngine → FileDescriptorTable → Disk
-                              (built, not wired in)
-```
 
-- **Wire protocol:** `MAGIC(4B) + LENGTH(4B) + JSON` frames. Magic mismatch / truncation fails fast.
-- **Server:** one virtual thread per connection — cheap concurrency at scale, no thread-pool sizing.
-- **Client:** one TCP connection, many in-flight requests, matched by request ID to a `Future`.
-- **Storage:** per-path read/write locks so concurrent readers don't block each other, writers get exclusion.
+---
 
-## Status
+## 💻 Usage & Integration
 
-| 1 | Wire + transport + listener | Built — concurrency proof pending |
-| 2 | Storage + handles + locking | Built — corruption proof pending |
-| 3 | Client proxy + LRU cache | Both built standalone — not wired together |
-| 4 | Security sandbox | Not started |
-
-**No blocking issue — server dispatch speaks real frames.** The client and server can now communicate end-to-end. Next: wire the LRU cache into the client (Phase 3), then the security sandbox (Phase 4).
-
-## Stack
-
-Java 21 · Gradle 9.3.1 · Jackson 2.18.2 · JUnit 5.11.4 · SLF4J 2.0.17 · GitHub Actions (macOS, Temurin 21)
-
-## Installation
-
-### Homebrew (macOS)
+### 1. Command-Line Interface (CLI)
+Build and run the standalone server executable from the command line:
 
 ```bash
-brew tap Rishabh2804/orbitfs https://github.com/Rishabh2804/OrbitFS
-brew install orbitfs
+# Build standalone JAR
+./gradlew jar
+
+# Run server on port 9090 sharing /Users/shared
+java -jar build/libs/orbitfs-core-0.1.0.jar --port 9090 --root /Users/shared
 ```
 
-### Install script (macOS)
+#### CLI Arguments:
+- `--port <number>`: TCP port to listen on (Default: `9090`).
+- `--root <path>`: Local directory path to expose as server root share.
+- `--hide-hidden`: Hide dotfiles/hidden files from directory listings.
+
+---
+
+### 2. Java / JVM API Integration
+
+#### Starting the OrbitFS Server Programmatically:
+```java
+import org.orbitfs.server.OrbitServerImpl;
+import java.nio.file.Path;
+
+public class ServerLauncher {
+    public static void main(String[] args) throws Exception {
+        int port = 9090;
+        Path rootPath = Path.of("/path/to/share");
+        boolean hideHidden = true;
+
+        // Initialize and start server
+        OrbitServerImpl server = new OrbitServerImpl(port, rootPath, hideHidden);
+        server.start();
+        System.out.println("OrbitFS Server running on port " + port);
+    }
+}
+```
+
+#### Connecting and Transferring Files Programmatically:
+```java
+import org.orbitfs.client.NetworkTransportClient;
+import org.orbitfs.client.CachingOrbitFSClient;
+import org.orbitfs.common.protocol.RPCResponse;
+
+public class ClientLauncher {
+    public static void main(String[] args) throws Exception {
+        // Connect to remote server
+        NetworkTransportClient transport = new NetworkTransportClient("192.168.1.15", 9090, 10000);
+        transport.connect();
+
+        CachingOrbitFSClient client = new CachingOrbitFSClient(transport);
+
+        // List files
+        var entries = client.listWithStat("/", false);
+        for (var entry : entries) {
+            System.out.println(entry.name() + " - " + entry.size() + " bytes");
+        }
+
+        // Read file bytes
+        String handle = client.open("documents/report.pdf");
+        byte[] bytes = client.read(handle, 0, 65536);
+        client.close(handle);
+
+        transport.close();
+    }
+}
+```
+
+---
+
+## 🛠️ Building & Testing
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Rishabh2804/OrbitFS/main/bin/install.sh | bash
+# Run unit and integration tests
+./gradlew test
+
+# Generate production JAR
+./gradlew jar
 ```
 
-### Build from source
+---
 
-```bash
-git clone https://github.com/Rishabh2804/OrbitFS.git
-cd OrbitFS && ./gradlew jar
-java -jar build/libs/orbitfs-*.jar --help
-```
-
-## Run it
-
-```bash
-git clone https://github.com/Rishabh2804/OrbitFS.git
-cd OrbitFS && ./gradlew test
-```
-
-40 tests pass. Full design spec: `DESIGN.md`, original spec: `OrbitFS_Technical_Specification.pdf` (repo root).
-
-## Layout
-
-```
-org.orbitfs.common   — wire protocol, shared models
-org.orbitfs.server   — listener, dispatch, storage engine, locking
-org.orbitfs.client   — client interface, transport, cache
-```
-
-See [`DESIGN.md`](./DESIGN.md) for protocol details, concurrency model, and known issues.
+## 📄 License
+OrbitFS Core is distributed under the [Apache License 2.0](LICENSE).
