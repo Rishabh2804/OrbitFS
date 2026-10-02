@@ -25,16 +25,16 @@ OrbitFS Core is a high-performance, lightweight peer-to-peer filesystem and tran
 
 ```mermaid
 flowchart TB
-    subgraph Client["Client Application"]
+    subgraph ClientSub["Client Application"]
         App["App / ViewModel"] --> CClient["CachingOrbitFSClient"]
         CClient --> Cache["LRUChunkCache (64KB Chunks)"]
         CClient --> NTC["NetworkTransportClient"]
     end
 
-    NTC <== "Framed TCP Socket (ORBT + 4B Len + JSON)" ==> Server
+    NTC <== "Framed TCP Socket (ORBT + 4B Len + JSON)" ==> ServerNode
     
-    subgraph Server["OrbitFS Server Engine"]
-        Server["OrbitServerImpl (Virtual Threads)"] --> Guard["SandboxGuard"]
+    subgraph ServerEngine["OrbitFS Server Engine"]
+        ServerNode["OrbitServerImpl (Virtual Threads)"] --> Guard["SandboxGuard"]
         Guard --> Locks["PathLockRegistry"]
         Locks --> Engine["StorageEngine"]
         Engine --> FDT["FileDescriptorTable"]
