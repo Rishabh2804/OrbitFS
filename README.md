@@ -10,7 +10,20 @@ OrbitFS Core is a high-performance, lightweight peer-to-peer filesystem and tran
 
 ---
 
+## 📚 Table of Contents
+
+- [Key Technical Highlights](#-key-technical-highlights)
+- [Architecture & Flow Summary](#-architecture--flow-summary)
+- [CLI & API Quickstart](#-cli--api-quickstart)
+- [Repository Structure](#-repository-structure)
+- [Documentation Index](#-documentation-index)
+- [License](#-license)
+
+---
+
 ## 🌟 Key Technical Highlights
+
+Below is a summary of OrbitFS Core capabilities. For detailed specifications, visit [docs/FEATURES.md](docs/FEATURES.md).
 
 - **Custom Binary-Framed RPC Protocol**: `MAGIC(4B) + LENGTH(4B) + JSON` message frames with strict error handling (`READ`, `WRITE`, `STAT`, `LIST`, `OPEN`, `CLOSE`).
 - **Java 21 Virtual Thread Concurrency**: `Thread.ofVirtual()` per-connection server model delivering cheap, scalable concurrency without OS thread-pool sizing constraints.
@@ -21,111 +34,58 @@ OrbitFS Core is a high-performance, lightweight peer-to-peer filesystem and tran
 
 ---
 
-## 🏗️ Architecture & Component Flow
+## 🏗️ Architecture & Flow Summary
 
-```mermaid
-flowchart TB
-    subgraph ClientSub["Client Application"]
-        App["App / ViewModel"] --> CClient["CachingOrbitFSClient"]
-        CClient --> Cache["LRUChunkCache (64KB Chunks)"]
-        CClient --> NTC["NetworkTransportClient"]
-    end
+For full architectural breakdown and threading models, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-    NTC <== "Framed TCP Socket (ORBT + 4B Len + JSON)" ==> ServerNode
-    
-    subgraph ServerEngine["OrbitFS Server Engine"]
-        ServerNode["OrbitServerImpl (Virtual Threads)"] --> Guard["SandboxGuard"]
-        Guard --> Locks["PathLockRegistry"]
-        Locks --> Engine["StorageEngine"]
-        Engine --> FDT["FileDescriptorTable"]
-        FDT --> Disk[("Local File System / Disk")]
-    end
-```
+![Backend Architecture](./docs/diagrams/backend_architecture.svg)
 
 ---
 
-## 💻 Usage & Integration
+## 💻 CLI & API Quickstart
 
-### 1. Command-Line Interface (CLI)
-Build and run the standalone server executable from the command line:
+For full code examples and CLI options, see [docs/API_AND_CLI.md](docs/API_AND_CLI.md).
 
 ```bash
-# Build standalone JAR
+# 1. Quick Install (macOS)
+curl -fsSL https://raw.githubusercontent.com/Rishabh2804/OrbitFS/main/bin/install.sh | bash
+
+# 2. Launch OrbitFS Server
+orbit --port 9090 --root /Users/shared
+
+# Or build from source
 ./gradlew jar
-
-# Run server on port 9090 sharing /Users/shared
-java -jar build/libs/orbitfs-core-0.1.0.jar --port 9090 --root /Users/shared
-```
-
-#### CLI Arguments:
-- `--port <number>`: TCP port to listen on (Default: `9090`).
-- `--root <path>`: Local directory path to expose as server root share.
-- `--hide-hidden`: Hide dotfiles/hidden files from directory listings.
-
----
-
-### 2. Java / JVM API Integration
-
-#### Starting the OrbitFS Server Programmatically:
-```java
-import org.orbitfs.server.OrbitServerImpl;
-import java.nio.file.Path;
-
-public class ServerLauncher {
-    public static void main(String[] args) throws Exception {
-        int port = 9090;
-        Path rootPath = Path.of("/path/to/share");
-        boolean hideHidden = true;
-
-        // Initialize and start server
-        OrbitServerImpl server = new OrbitServerImpl(port, rootPath, hideHidden);
-        server.start();
-        System.out.println("OrbitFS Server running on port " + port);
-    }
-}
-```
-
-#### Connecting and Transferring Files Programmatically:
-```java
-import org.orbitfs.client.NetworkTransportClient;
-import org.orbitfs.client.CachingOrbitFSClient;
-import org.orbitfs.common.protocol.RPCResponse;
-
-public class ClientLauncher {
-    public static void main(String[] args) throws Exception {
-        // Connect to remote server
-        NetworkTransportClient transport = new NetworkTransportClient("192.168.1.15", 9090, 10000);
-        transport.connect();
-
-        CachingOrbitFSClient client = new CachingOrbitFSClient(transport);
-
-        // List files
-        var entries = client.listWithStat("/", false);
-        for (var entry : entries) {
-            System.out.println(entry.name() + " - " + entry.size() + " bytes");
-        }
-
-        // Read file bytes
-        String handle = client.open("documents/report.pdf");
-        byte[] bytes = client.read(handle, 0, 65536);
-        client.close(handle);
-
-        transport.close();
-    }
-}
+./orbit --port 9090 --root /Users/shared
 ```
 
 ---
 
-## 🛠️ Building & Testing
+## 📁 Repository Structure
 
-```bash
-# Run unit and integration tests
-./gradlew test
-
-# Generate production JAR
-./gradlew jar
 ```
+OrbitFS/
+├── src/
+│   └── main/java/org/orbitfs/
+│       ├── common/          # Wire protocol, FrameCodec, JSON models
+│       ├── server/          # OrbitServerImpl, SandboxGuard, PathLockRegistry, StorageEngine
+│       └── client/          # CachingOrbitFSClient, NetworkTransportClient, LRUChunkCache
+├── docs/                    # Detailed technical sub-documentation & D2 diagrams
+│   ├── diagrams/            # D2-generated SVG architecture & sequence diagrams
+│   ├── FEATURES.md          # Engine feature specification & capability list
+│   ├── ARCHITECTURE.md      # System architecture & threading model
+│   ├── DESIGN.md            # Low-Level Design (LLD) & protocol spec
+│   └── API_AND_CLI.md       # Java/JVM API & CLI integration guide
+└── README.md                # Project README
+```
+
+---
+
+## 📑 Documentation Index
+
+- [Engine Feature Specification (docs/FEATURES.md)](docs/FEATURES.md)
+- [System Architecture (docs/ARCHITECTURE.md)](docs/ARCHITECTURE.md)
+- [Low-Level Design & Protocol (docs/DESIGN.md)](docs/DESIGN.md)
+- [API & CLI Guide (docs/API_AND_CLI.md)](docs/API_AND_CLI.md)
 
 ---
 

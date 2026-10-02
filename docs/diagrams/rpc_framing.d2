@@ -1,0 +1,18 @@
+direction: right
+
+header: "4-Byte Big-Endian Binary Header" {
+  style.fill: "#89B4FA"
+  style.font-color: "#11111B"
+  magic: "Magic: ORBT (0x4F524254)"
+  len: "Payload Length (4B Int)"
+}
+
+payload: "Minified JSON RPC Payload" {
+  style.fill: "#A6E3A1"
+  style.font-color: "#11111B"
+  body: "{\"id\": 1, \"method\": \"READ\", \"fd\": \"...\", \"offset\": 0, \"count\": 65536}"
+}
+
+header -> payload: "Framed TCP Stream" {
+  style.stroke: "#CDD6F4"
+}
