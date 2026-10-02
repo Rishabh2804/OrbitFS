@@ -1,0 +1,23 @@
+shape: sequence_diagram
+
+app: Client App
+cache: LRUChunkCache
+client: NetworkTransportClient
+server: OrbitServerImpl
+engine: StorageEngine
+
+app -> client: 1. write(handle, offset, data)
+client -> server: 2. Frame (WRITE)
+server -> engine: 3. write (under writeLock)
+engine -> server: 4. Bytes Written
+server -> client: 5. Frame (OK)
+client -> cache: 6. Mark Chunk Dirty
+
+app -> cache: 7. read(handle, offset, count)
+cache -> client: 8. Cache Miss -> READ
+client -> server: 9. Frame (READ)
+server -> engine: 10. read (under readLock)
+engine -> server: 11. Bytes Read
+server -> client: 12. Frame (Base64 Payload)
+client -> cache: 13. Store in Cache
+cache -> app: 14. Return Bytes to Caller

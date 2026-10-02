@@ -1,0 +1,35 @@
+direction: down
+
+client: "Client Transport Subsystem" {
+  style.fill: "#1E1E2E"
+  style.stroke: "#89B4FA"
+  style.font-color: "#CDD6F4"
+
+  cclient: "CachingOrbitFSClient" { style.fill: "#313244"; style.font-color: "#89B4FA" }
+  cache: "LRUChunkCache (64KB Chunks)" { style.fill: "#313244"; style.font-color: "#A6E3A1" }
+  ntc: "NetworkTransportClient" { style.fill: "#313244"; style.font-color: "#FAB387" }
+}
+
+server: "OrbitFS Server Engine (Java 21)" {
+  style.fill: "#181825"
+  style.stroke: "#A6E3A1"
+  style.font-color: "#CDD6F4"
+
+  impl: "OrbitServerImpl (Virtual Threads)" { style.fill: "#313244"; style.font-color: "#A6E3A1" }
+  guard: "SandboxGuard (Path Jail)" { style.fill: "#313244"; style.font-color: "#F38BA8" }
+  locks: "PathLockRegistry (ReadWriteLock)" { style.fill: "#313244"; style.font-color: "#CBA6F7" }
+  engine: "StorageEngine" { style.fill: "#313244"; style.font-color: "#89B4FA" }
+  fdt: "FileDescriptorTable" { style.fill: "#313244"; style.font-color: "#F9E2AF" }
+  disk: "Host File System / Disk" { style.fill: "#45475A"; style.font-color: "#CDD6F4" }
+}
+
+client.ntc -> server.impl: "Persistent TCP Socket (ORBT + 4B Len + JSON)" {
+  style.stroke: "#89B4FA"
+  style.stroke-width: 2
+}
+
+server.impl -> server.guard
+server.guard -> server.locks
+server.locks -> server.engine
+server.engine -> server.fdt
+server.fdt -> server.disk
