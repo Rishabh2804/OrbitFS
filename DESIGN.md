@@ -75,16 +75,16 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    subgraph Client["Client Subsystem"]
+    subgraph ClientSub["Client Subsystem"]
         App["App / ViewModel"] --> CClient["CachingOrbitFSClient"]
         CClient <--> Cache["LRUChunkCache (64KB)"]
         CClient --> NTC["NetworkTransportClient"]
     end
 
-    NTC <== "Persistent TCP Socket" ==> Server
+    NTC <== "Persistent TCP Socket" ==> ServerNode
 
-    subgraph Server["Server Subsystem"]
-        Server["OrbitServerImpl (Virtual Threads)"] --> Guard["SandboxGuard"]
+    subgraph ServerEngine["Server Subsystem"]
+        ServerNode["OrbitServerImpl (Virtual Threads)"] --> Guard["SandboxGuard"]
         Guard --> Locks["PathLockRegistry"]
         Locks --> Engine["StorageEngine"]
         Engine --> FDT["FileDescriptorTable"]
